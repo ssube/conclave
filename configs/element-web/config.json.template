@@ -1,0 +1,10 @@
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "https://${EXTERNAL_HOSTNAME}",
+            "server_name": "${MATRIX_SERVER_NAME}"
+        }
+    },
+    "brand": "Element",
+    "disable_guests": true
+}

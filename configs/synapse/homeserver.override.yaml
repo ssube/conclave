@@ -1,0 +1,17 @@
+database:
+  name: psycopg2
+  args:
+    host: /var/run/postgresql
+    database: synapse
+    user: synapse
+    cp_min: 5
+    cp_max: 10
+
+media_store_path: "/workspace/data/synapse/media_store"
+enable_registration: false
+
+listeners:
+  - port: 8008
+    type: http
+    resources:
+      - names: [client, federation]
