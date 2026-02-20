@@ -38,13 +38,9 @@
 
 - name: Copy pi-skills skills
   command: rsync -a /tmp/pi-skills/skills/ /opt/conclave/pi/skills/
-  args:
-    creates: /opt/conclave/pi/skills
 
 - name: Copy pi-skills extensions
   command: rsync -a /tmp/pi-skills/extensions/ /opt/conclave/pi/extensions/
-  args:
-    creates: /opt/conclave/pi/extensions
 
 - name: Copy project matrix skills (overrides pi-skills versions)
   command: rsync -a /opt/conclave/skills-src/{{ item }}/ /opt/conclave/pi/skills/{{ item }}/
@@ -53,6 +49,14 @@
     - matrix-read
   args:
     removes: /opt/conclave/skills-src/{{ item }}
+
+- name: Create Claude Code skills directory
+  file:
+    path: /opt/conclave/skills/claude-code
+    state: directory
+
+- name: Copy Claude Code skills
+  command: rsync -a /opt/conclave/skills-src/claude-code/ /opt/conclave/skills/claude-code/
 
 - name: Clean up pi-skills clone
   file:
