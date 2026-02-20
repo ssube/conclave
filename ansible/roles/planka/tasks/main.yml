@@ -1,19 +1,40 @@
 ---
-- name: Create Planka directory
-  file:
-    path: /opt/planka
-    state: directory
+- name: Install unzip
+  apt:
+    name: unzip
+    state: present
 
 - name: Download Planka release
+  get_url:
+    url: "https://github.com/plankanban/planka/releases/download/v{{ conclave_planka_version }}/planka-prebuild.zip"
+    dest: /tmp/planka-prebuild.zip
+
+- name: Create temp extraction directory
+  file:
+    path: /tmp/planka-extract
+    state: directory
+
+- name: Extract Planka release
   unarchive:
-    src: "https://github.com/plankanban/planka/releases/download/v{{ conclave_planka_version }}/planka-v{{ conclave_planka_version }}-prebuilt.tar.gz"
-    dest: /opt/planka
+    src: /tmp/planka-prebuild.zip
+    dest: /tmp/planka-extract
     remote_src: true
-    extra_opts:
-      - --strip-components=1
+
+- name: Move Planka to /opt/planka
+  command: cp -a /tmp/planka-extract/planka /opt/planka
+  args:
+    creates: /opt/planka/package.json
+
+- name: Clean up Planka temp files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/planka-prebuild.zip
+    - /tmp/planka-extract
 
 - name: Install Planka npm dependencies
-  command: npm install --production
+  command: npm install --omit=dev
   args:
     chdir: /opt/planka
     creates: /opt/planka/node_modules

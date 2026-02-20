@@ -26,7 +26,7 @@
 
 - name: Add PostgreSQL APT repository
   apt_repository:
-    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_facts['distribution_release'] }}-pgdg main"
     state: present
 
 - name: Add NodeSource GPG key
@@ -48,7 +48,6 @@
 - name: Create neko user
   user:
     name: neko
-    uid: 1000
     shell: /bin/bash
     create_home: true
 

@@ -1,9 +1,30 @@
 ---
-- name: Download Ollama binary
+- name: Check if Ollama is already installed
+  stat:
+    path: /usr/bin/ollama
+  register: ollama_binary
+
+- name: Install zstd for Ollama archive
+  apt:
+    name: zstd
+    state: present
+  when: not ollama_binary.stat.exists
+
+- name: Download Ollama archive
   get_url:
-    url: https://ollama.ai/download/ollama-linux-amd64
-    dest: /usr/local/bin/ollama
-    mode: "0755"
+    url: "https://github.com/ollama/ollama/releases/download/v{{ conclave_ollama_version }}/ollama-linux-amd64.tar.zst"
+    dest: /tmp/ollama-linux-amd64.tar.zst
+  when: not ollama_binary.stat.exists
+
+- name: Extract Ollama archive
+  command: tar --use-compress-program=unzstd -xf /tmp/ollama-linux-amd64.tar.zst -C /usr
+  when: not ollama_binary.stat.exists
+
+- name: Clean up Ollama archive
+  file:
+    path: /tmp/ollama-linux-amd64.tar.zst
+    state: absent
+  when: not ollama_binary.stat.exists
 
 - name: Copy ollama-pull script
   copy:

@@ -22,7 +22,8 @@ conclave_scripts_dir: /opt/conclave/scripts
 conclave_postgres_version: "16"
 conclave_node_version: "20"
 conclave_element_web_version: "1.11.96"
-conclave_planka_version: "2.4.1"
+conclave_planka_version: "2.0.1"
+conclave_ollama_version: "0.16.3"
 conclave_neko_version: "2.8.0"
 conclave_ttyd_version: "1.7.7"
 

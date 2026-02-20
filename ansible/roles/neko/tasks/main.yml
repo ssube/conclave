@@ -16,13 +16,71 @@
       - gstreamer1.0-plugins-bad
       - gstreamer1.0-plugins-ugly
       - gstreamer1.0-pulseaudio
+      - libgstreamer1.0-dev
+      - libgstreamer-plugins-base1.0-dev
     state: present
 
-- name: Download N.eko binary
-  get_url:
-    url: "https://github.com/m1k1o/neko/releases/download/v{{ conclave_neko_version }}/neko-amd64"
-    dest: /usr/local/bin/neko
-    mode: "0755"
+- name: Install N.eko build dependencies
+  apt:
+    name:
+      - golang-go
+      - cmake
+      - make
+      - gcc
+      - libx11-dev
+      - libxrandr-dev
+      - libxfixes-dev
+      - libxtst-dev
+      - libxcursor-dev
+      - libxinerama-dev
+      - libxi-dev
+      - libxcb1-dev
+    state: present
+
+- name: Clone libclipboard
+  git:
+    repo: https://github.com/jtanx/libclipboard.git
+    dest: /tmp/libclipboard
+    depth: 1
+
+- name: Build and install libclipboard
+  shell: |
+    cmake . -DBUILD_TESTING=OFF
+    make -j4 clipboard
+    cp lib/libclipboard.a /usr/local/lib/
+    cp include/libclipboard.h include/libclipboard-config.h /usr/local/include/
+  args:
+    chdir: /tmp/libclipboard
+    creates: /usr/local/lib/libclipboard.a
+
+- name: Clean up libclipboard source
+  file:
+    path: /tmp/libclipboard
+    state: absent
+
+- name: Clone N.eko repository
+  git:
+    repo: https://github.com/m1k1o/neko.git
+    dest: /tmp/neko-src
+    version: "v{{ conclave_neko_version }}"
+    depth: 1
+
+- name: Build N.eko server binary
+  command: go build -o /usr/local/bin/neko ./cmd/neko
+  args:
+    chdir: /tmp/neko-src/server
+    creates: /usr/local/bin/neko
+  environment:
+    CGO_ENABLED: "1"
+    GOPATH: /tmp/go
+
+- name: Clean up N.eko source
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/neko-src
+    - /tmp/go
 
 - name: Install Playwright and Chromium for CDP
   pip:
@@ -31,6 +89,8 @@
 
 - name: Install Playwright Chromium browser
   command: playwright install --with-deps chromium
+  args:
+    creates: /opt/pw-browsers
   environment:
     PLAYWRIGHT_BROWSERS_PATH: /opt/pw-browsers
 
