@@ -3,3 +3,7 @@
   pip:
     name: chromadb
     extra_args: --break-system-packages
+
+- name: Verify ChromaDB is installed
+  command: chroma --version
+  changed_when: false

@@ -71,3 +71,17 @@
   loop:
     - pi-models.json
     - tmux.conf
+
+- name: Verify pi is installed
+  command: pi --version
+  changed_when: false
+
+- name: Verify Claude Code is installed
+  command: claude --version
+  changed_when: false
+
+- name: Verify pi skills are deployed
+  stat:
+    path: /opt/conclave/pi/skills
+  register: pi_skills_dir
+  failed_when: not pi_skills_dir.stat.exists

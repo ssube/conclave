@@ -4,3 +4,7 @@
     url: "https://github.com/tsl0922/ttyd/releases/download/{{ conclave_ttyd_version }}/ttyd.x86_64"
     dest: /usr/local/bin/ttyd
     mode: "0755"
+
+- name: Verify ttyd is installed
+  command: /usr/local/bin/ttyd --version
+  changed_when: false

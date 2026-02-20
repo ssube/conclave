@@ -32,3 +32,7 @@
     dest: "{{ conclave_scripts_dir }}/ollama-pull.sh"
     mode: "0755"
     remote_src: true
+
+- name: Verify Ollama is installed
+  command: /usr/bin/ollama --version
+  changed_when: false

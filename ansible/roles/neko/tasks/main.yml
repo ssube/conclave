@@ -105,3 +105,12 @@
     dest: /usr/local/bin/chromium-pw
     state: link
   when: chromium_path.stdout != ""
+
+- name: Verify N.eko binary is installed
+  command: /usr/local/bin/neko --help
+  changed_when: false
+  failed_when: false
+
+- name: Verify Chromium is installed
+  command: /usr/local/bin/chromium-pw --version
+  changed_when: false

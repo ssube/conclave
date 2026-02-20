@@ -14,3 +14,7 @@
   file:
     path: /var/run/sshd
     state: directory
+
+- name: Verify sshd is installed
+  command: sshd -t
+  changed_when: false

@@ -17,3 +17,9 @@
     src: "{{ conclave_configs_src }}/element-web/config.json.template"
     dest: "{{ conclave_configs_src }}/element-web/config.json.template"
     remote_src: true
+
+- name: Verify Element Web is installed
+  stat:
+    path: /opt/element-web/index.html
+  register: element_index
+  failed_when: not element_index.stat.exists

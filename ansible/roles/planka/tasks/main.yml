@@ -38,3 +38,9 @@
   args:
     chdir: /opt/planka
     creates: /opt/planka/node_modules
+
+- name: Verify Planka is installed
+  stat:
+    path: /opt/planka/app.js
+  register: planka_app
+  failed_when: not planka_app.stat.exists

@@ -22,3 +22,7 @@
   file:
     path: /etc/nginx/sites-enabled/default
     state: absent
+
+- name: Verify nginx is installed
+  command: nginx -v
+  changed_when: false

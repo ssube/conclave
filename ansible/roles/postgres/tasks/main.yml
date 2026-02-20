@@ -20,3 +20,7 @@
     dest: "{{ conclave_scripts_dir }}/init-postgres.sh"
     mode: "0755"
     remote_src: true
+
+- name: Verify PostgreSQL is installed
+  command: psql --version
+  changed_when: false
