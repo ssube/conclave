@@ -1,7 +1,9 @@
 ---
-- name: Install unzip
+- name: Install Planka dependencies
   apt:
-    name: unzip
+    name:
+      - unzip
+      - python3-venv
     state: present
 
 - name: Download Planka release
