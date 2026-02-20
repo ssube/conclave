@@ -26,7 +26,7 @@ bash /opt/conclave/scripts/launch-runpod.sh \
 
 # Custom GPU and image
 bash /opt/conclave/scripts/launch-runpod.sh \
-  --gpu-type "NVIDIA H100 80GB HBM3" \
+  --gpu a6000 \
   --image your-registry/conclave:latest \
   --volume-size 1000 \
   --env NGINX_PASSWORD=your-password \
@@ -50,7 +50,7 @@ Pass via `--env` flags:
 - `ANTHROPIC_API_KEY` — for Claude Code and pi
 - `OPENAI_API_KEY` — for pi (OpenAI provider)
 - `SSH_AUTHORIZED_KEYS` — SSH public keys (newline-separated)
-- `DEFAULT_OLLAMA_MODEL` — model to pre-pull (default: llama3.1:8b)
+- `DEFAULT_OLLAMA_MODEL` — model to pre-pull (default: qwen3-coder:30b-a3b-q8_0)
 
 ## After Launch
 

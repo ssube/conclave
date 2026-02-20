@@ -21,7 +21,10 @@
   .status-fail { background: #f85149; }
   .status-pending { background: #8b949e; }
   .service-desc { color: #8b949e; font-size: 0.85rem; }
-  .service-port { color: #6e7681; font-size: 0.8rem; margin-top: 0.25rem; }
+  .service-links { font-size: 0.8rem; margin-top: 0.25rem; }
+  .service-links a { color: #58a6ff; text-decoration: none; }
+  .service-links a:hover { text-decoration: underline; }
+  .service-links .sep { color: #6e7681; }
   table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
   th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #21262d; }
   th { color: #8b949e; font-size: 0.85rem; }
@@ -46,7 +49,11 @@
       <span class="status status-pending" id="s-synapse"></span>
     </div>
     <div class="service-desc">Matrix chat client (Synapse homeserver)</div>
-    <div class="service-port">Port 8008 | <code>/_matrix/</code></div>
+    <div class="service-links">
+      <a href="/element/">/element/</a> <span class="sep">|</span>
+      <a href="/_matrix/">/_matrix/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="8008">:8008</a>
+    </div>
   </div>
 
   <div class="service">
@@ -55,7 +62,10 @@
       <span class="status status-pending" id="s-planka"></span>
     </div>
     <div class="service-desc">Kanban project management</div>
-    <div class="service-port">Port 1337 | <code>/planka/</code></div>
+    <div class="service-links">
+      <a href="/planka/">/planka/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="1337">:1337</a>
+    </div>
   </div>
 
   <div class="service">
@@ -64,7 +74,22 @@
       <span class="status status-pending" id="s-chromadb"></span>
     </div>
     <div class="service-desc">Vector database for RAG</div>
-    <div class="service-port">Port 8000 | <code>/chromadb/</code></div>
+    <div class="service-links">
+      <a href="/chromadb/">/chromadb/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="8000">:8000</a>
+    </div>
+  </div>
+
+  <div class="service">
+    <div class="service-header">
+      <span class="service-name"><a href="/chromadb-admin/" target="_blank">ChromaDB Admin</a></span>
+      <span class="status status-pending" id="s-chromadb-admin"></span>
+    </div>
+    <div class="service-desc">Vector database browser</div>
+    <div class="service-links">
+      <a href="/chromadb-admin/">/chromadb-admin/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="3100">:3100</a>
+    </div>
   </div>
 
   <div class="service">
@@ -73,7 +98,10 @@
       <span class="status status-pending" id="s-ollama"></span>
     </div>
     <div class="service-desc">LLM inference (OpenAI-compatible API)</div>
-    <div class="service-port">Port 11434 | <code>/ollama/</code></div>
+    <div class="service-links">
+      <a href="/ollama/">/ollama/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="11434">:11434</a>
+    </div>
   </div>
 
   <div class="service">
@@ -82,7 +110,10 @@
       <span class="status status-pending" id="s-neko"></span>
     </div>
     <div class="service-desc">WebRTC browser session + CDP</div>
-    <div class="service-port">Port 8080 | <code>/neko/</code></div>
+    <div class="service-links">
+      <a href="/neko/">/neko/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="8080">:8080</a>
+    </div>
   </div>
 
   <div class="service">
@@ -91,7 +122,10 @@
       <span class="status status-pending" id="s-ttyd"></span>
     </div>
     <div class="service-desc">Web terminal (tmux workspace)</div>
-    <div class="service-port">Port 7681 | <code>/terminal/</code></div>
+    <div class="service-links">
+      <a href="/terminal/">/terminal/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="7681">:7681</a>
+    </div>
   </div>
 </div>
 
@@ -111,6 +145,7 @@
     <tr><td>11434</td><td>Ollama</td><td>Fallback</td></tr>
     <tr><td>8080</td><td>N.eko</td><td>Fallback</td></tr>
     <tr><td>7681</td><td>ttyd</td><td>Fallback</td></tr>
+    <tr><td>9222</td><td>Chromium CDP</td><td>Internal only</td></tr>
     <tr><td>52000-52100/udp</td><td>N.eko WebRTC</td><td>Direct</td></tr>
   </tbody>
 </table>
@@ -119,10 +154,7 @@
 <div class="guide">
   <ol>
     <li>Open <a href="/terminal/" style="color:#58a6ff">Terminal</a> to access the tmux workspace</li>
-    <li>Register a Synapse admin user:
-      <br><code>register_new_matrix_user -c /workspace/config/synapse/homeserver.yaml http://localhost:8008</code></li>
-    <li>Log into <a href="/element/" style="color:#58a6ff">Element</a> with the admin account</li>
-    <li>Create a second user for the AI agent (conclave-agent)</li>
+    <li>Log into <a href="/element/" style="color:#58a6ff">Element</a> — admin and agent users are created automatically on first boot</li>
     <li>Open <a href="/planka/" style="color:#58a6ff">Planka</a> and log in with admin credentials</li>
     <li>Configure pi: edit <code>/workspace/data/coding/.pi/agent/SYSTEM.md</code></li>
     <li>Set API keys in the terminal:
@@ -134,14 +166,21 @@
 <div class="env-info" id="env-info"></div>
 
 <script>
+// Generate direct port links using current hostname
+document.querySelectorAll('.port-link').forEach(function(el) {
+  var port = el.getAttribute('data-port');
+  el.href = location.protocol + '//' + location.hostname + ':' + port + '/';
+});
+
 async function checkHealth() {
   const checks = [
-    { id: 's-synapse',  url: '/_matrix/client/versions' },
-    { id: 's-planka',   url: '/planka/' },
-    { id: 's-chromadb', url: '/chromadb/api/v1/heartbeat' },
-    { id: 's-ollama',   url: '/ollama/api/tags' },
-    { id: 's-neko',     url: '/neko/' },
-    { id: 's-ttyd',     url: '/terminal/' },
+    { id: 's-synapse',        url: '/_matrix/client/versions' },
+    { id: 's-planka',         url: '/planka/' },
+    { id: 's-chromadb',       url: '/chromadb/api/v1/heartbeat' },
+    { id: 's-chromadb-admin', url: '/chromadb-admin/' },
+    { id: 's-ollama',         url: '/ollama/api/tags' },
+    { id: 's-neko',           url: '/neko/' },
+    { id: 's-ttyd',           url: '/terminal/' },
   ];
 
   for (const check of checks) {
@@ -162,7 +201,7 @@ async function loadEnv() {
     if (resp.ok) {
       const env = await resp.json();
       const el = document.getElementById('env-info');
-      el.textContent = `Server: ${env.MATRIX_SERVER_NAME || 'unknown'} | Host: ${env.EXTERNAL_HOSTNAME || 'unknown'}`;
+      el.textContent = 'Server: ' + (env.MATRIX_SERVER_NAME || 'unknown') + ' | Host: ' + (env.EXTERNAL_HOSTNAME || 'unknown');
     }
   } catch {}
 }

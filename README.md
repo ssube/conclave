@@ -43,13 +43,16 @@ Deploy to a Runpod GPU pod:
 export RUNPOD_API_KEY="your-api-key"
 
 bash scripts/launch-runpod.sh \
+    --gpu a100-80 \
     --image your-registry/conclave:latest \
     --env NGINX_PASSWORD=your-password \
     --env ANTHROPIC_API_KEY=sk-... \
     --env SSH_AUTHORIZED_KEYS="ssh-ed25519 AAAA..."
 ```
 
-Options: `--gpu-type`, `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatable).
+GPU presets: `a6000` (48GB), `a100-80` (80GB, default), `l6000` (48GB), `6000-pro` (96GB). Use `--gpu-type` for a raw Runpod GPU type ID.
+
+Other options: `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatable).
 
 ## Environment Variables
 
@@ -65,7 +68,7 @@ Options: `--gpu-type`, `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (
 | `NEKO_ADMIN_PASSWORD` | No | `admin` | N.eko admin password |
 | `PLANKA_ADMIN_EMAIL` | No | `admin@local` | Planka admin email |
 | `PLANKA_ADMIN_PASSWORD` | No | `changeme` | Planka admin password |
-| `DEFAULT_OLLAMA_MODEL` | No | `llama3.1:8b` | Model to pre-pull on first boot |
+| `DEFAULT_OLLAMA_MODEL` | No | `qwen3-coder:30b-a3b-q8_0` | Model to pre-pull on first boot |
 | `ANTHROPIC_API_KEY` | No | — | API key for Claude Code and pi |
 | `OPENAI_API_KEY` | No | — | API key for pi (OpenAI provider) |
 | `SSH_AUTHORIZED_KEYS` | No | — | SSH public keys (newline-separated) |
