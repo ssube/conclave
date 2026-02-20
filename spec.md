@@ -17,7 +17,7 @@ Conclave is exactly that: a private, self-contained workspace where you and your
 
 ### 1.2 Why Conclave Exists
 
-GPU pod platforms like Runpod provide powerful hardware but impose a constraint: no nested Docker. You get one container. Conclave makes that one container count by running all services as supervised native processes with a shared persistent volume, using multi-stage Docker builds to extract binaries from upstream images rather than replaying their Dockerfiles.
+GPU pod platforms like Runpod provide powerful hardware but impose a constraint: no nested Docker. You get one container. Conclave makes that one container count by running all services as supervised native processes with a shared persistent volume, using Ansible playbooks run inside the container during `docker build` to install and configure each service.
 
 ### 1.3 Services at a Glance
 
@@ -37,7 +37,7 @@ GPU pod platforms like Runpod provide powerful hardware but impose a constraint:
 
 - **Single container, no nested Docker.** All services run as native processes managed by supervisord.
 - **Persistent volume at `/workspace`.** All application state, databases, models, and configuration survive pod restarts.
-- **Multi-stage Docker build.** Copy binaries and assets from upstream images rather than replaying their Dockerfiles.
+- **Ansible-driven build.** An Ansible playbook with per-service roles runs inside the container during `docker build`, installing packages, building from source where needed, and deploying configs.
 - **First boot vs. subsequent boot.** A startup script initializes data directories and config files on first run, then starts services on all subsequent runs.
 - **Env vars override config defaults.** Secrets are passed as environment variables at pod start; the startup script writes them into persistent config files.
 
@@ -232,7 +232,7 @@ Ollama provides an OpenAI-compatible API for LLM inference on the GPU.
 | Property | Value |
 |---|---|
 | Source image | `ollama/ollama:latest` |
-| Binary path | `/usr/local/bin/ollama` |
+| Binary path | `/usr/bin/ollama` |
 | Internal port | 11434 |
 | Model cache | `/workspace/data/ollama/models/` |
 | Nginx path | `/ollama/` → `http://127.0.0.1:11434` |
@@ -273,9 +273,10 @@ N.eko provides a WebRTC-streamed browser session accessible via web UI, with sup
 
 | Property | Value |
 |---|---|
-| Source image | `m1k1o/neko:firefox` (reference for extraction) |
+| Source | Built from source (`github.com/m1k1o/neko`) |
 | Internal port | 8080 (HTTP/WebSocket) |
 | WebRTC ports | 52000–52100 (UDP) |
+| CDP port | 9222 (Chromium remote debugging) |
 | Data directory | `/workspace/data/neko/` |
 | Nginx path | `/neko/` → `http://127.0.0.1:8080` |
 | Direct port | 8080 |
@@ -291,17 +292,16 @@ NEKO_EPR=52000-52100
 NEKO_ICELITE=true
 ```
 
-**Integration complexity:** N.eko normally runs as its own container with Xvfb, PulseAudio, and a window manager. Running it natively inside Conclave requires extracting and running these components as separate supervised processes:
+**Integration:** N.eko is built from source and its display stack runs as separate supervised processes:
 
-1. **Xvfb** — virtual framebuffer on DISPLAY `:99`
-2. **PulseAudio** — audio server in daemonless mode
-3. **openbox** — lightweight window manager
-4. **Firefox/Chromium** — managed by the neko server binary
-5. **neko serve** — the WebRTC streaming server
+1. **dbus-daemon** — system bus (priority 14)
+2. **Xvfb** — virtual framebuffer on DISPLAY `:99` (priority 15)
+3. **PulseAudio** — audio server in daemonless mode (priority 15)
+4. **openbox** — lightweight window manager (priority 16)
+5. **Chromium** — Playwright Chromium with CDP enabled on port 9222, run as a separate supervised process (priority 17)
+6. **neko serve** — the WebRTC streaming server (priority 50)
 
-An existing example for running N.eko components natively in a single container is available and will be used as a reference during implementation. If native integration proves intractable, Podman can run N.eko as a nested container (see Section 11).
-
-**Programmatic access:** Playwright will be installed alongside the browser for CDP-based automation, enabling AI agents (pi, Claude Code) to drive the browser programmatically.
+**Programmatic access:** Playwright Chromium is installed via `playwright install --with-deps chromium` and symlinked to `/usr/local/bin/chromium-pw`. It runs with `--remote-debugging-port=9222` for CDP-based automation by AI agents (pi, Claude Code).
 
 ### 3.9 Coding Agents: pi + Claude Code
 
@@ -369,10 +369,12 @@ ttyd \
     --port 7681 \
     --writable \
     --credential "${TTYD_USER}:${TTYD_PASSWORD}" \
-    tmux new-session -A -s workspace
+    /opt/conclave/scripts/tmux-workspace.sh
 ```
 
-**SSH setup:** OpenSSH server with key-based auth only. Authorized keys stored at `/workspace/config/ssh/authorized_keys`.
+The `tmux-workspace.sh` script sources `/workspace/config/agent-env.sh` (agent credentials) into the environment, then creates a tmux session with three windows: `dev` (bash shell), `pi` (pi coding agent), and `claude` (Claude Code).
+
+**SSH setup:** OpenSSH server with key-based auth only. Authorized keys stored at `/workspace/data/coding/.ssh/authorized_keys` (dev user home, on persistent volume).
 
 ---
 
@@ -398,8 +400,7 @@ All persistent state lives under `/workspace`. The container filesystem is ephem
 │   │   └── .env
 │   ├── neko/
 │   │   └── .env
-│   ├── ssh/
-│   │   └── authorized_keys
+│   ├── agent-env.sh              # Agent credentials (sourced into tmux)
 │   └── generated-secrets.env     # Auto-generated secrets (first boot)
 │
 ├── data/                         # Application runtime data
@@ -410,9 +411,11 @@ All persistent state lives under `/workspace`. The container filesystem is ephem
 │   ├── ollama/
 │   │   └── models/               # Cached model weights
 │   ├── neko/                     # Browser profiles, downloads
-│   └── coding/                   # pi + Claude Code config, skills, projects
+│   └── coding/                   # dev user home — pi + Claude Code config, skills, projects
 │       ├── .pi/
 │       ├── .claude/
+│       ├── .ssh/
+│       │   └── authorized_keys   # SSH public keys (dev user)
 │       └── projects/
 │
 └── logs/                         # Centralized logs
@@ -596,105 +599,59 @@ http {
 | 11434 | Ollama | Fallback direct access |
 | 8080 | N.eko | Fallback direct access |
 | 7681 | ttyd | Fallback direct access |
+| 9222 | Chromium CDP | Internal only |
 | 52000–52100/udp | N.eko WebRTC | Expose via Runpod |
 
 ---
 
 ## 6. Dockerfile Strategy
 
-Multi-stage builds extract binaries and assets from upstream images, then assemble everything into a single runtime image.
+The build uses a single-stage Dockerfile with Ansible playbooks to install and configure all services. Ansible is installed temporarily, runs the playbook, and is then removed to keep the final image clean.
 
-### 6.1 Multi-Stage Build Outline
+### 6.1 Dockerfile
 
 ```dockerfile
-# ============================================================
-# Stage 1: Collect binaries from upstream images
-# ============================================================
-FROM matrixdotorg/synapse:latest AS synapse
-FROM vectorim/element-web:latest AS element-web
-FROM ghcr.io/plankanban/planka:latest AS planka
-FROM chromadb/chroma:latest AS chromadb
-FROM ollama/ollama:latest AS ollama
-FROM m1k1o/neko:firefox AS neko
-
-# ============================================================
-# Stage 2: Runtime image
-# ============================================================
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
-# --- System packages ---
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Core infrastructure
-    supervisor nginx openssh-server tmux curl wget git htop vim jq ca-certificates \
-    # PostgreSQL 16
-    postgresql-16 postgresql-client-16 \
-    # Python (Synapse + ChromaDB)
-    python3 python3-pip python3-venv \
-    # Node.js 20+ (Planka + coding agents)
-    nodejs npm \
-    # N.eko dependencies
-    xvfb pulseaudio openbox firefox dbus-x11 \
-    # ttyd
-    ttyd \
-    # Basic auth generation
-    apache2-utils \
-    && rm -rf /var/lib/apt/lists/*
+    python3 python3-pip software-properties-common && \
+    pip3 install ansible passlib && \
+    rm -rf /var/lib/apt/lists/*
 
-# --- Copy service binaries/assets ---
-COPY --from=synapse /opt/synapse /opt/synapse
-COPY --from=element-web /app /opt/element-web
-COPY --from=planka /app /opt/planka
-COPY --from=chromadb /chroma /opt/chromadb
-COPY --from=ollama /bin/ollama /usr/local/bin/ollama
-COPY --from=neko /usr/bin/neko /usr/local/bin/neko
-
-# --- Install Synapse (Python) ---
-RUN pip3 install matrix-synapse[postgres] --break-system-packages
-
-# --- Install ChromaDB (Python) ---
-RUN pip3 install chromadb --break-system-packages
-
-# --- Install coding agents ---
-RUN npm install -g @mariozechner/pi-coding-agent @anthropic-ai/claude-code
-
-# --- Copy Conclave configs, scripts, dashboard ---
-COPY scripts/ /opt/conclave/scripts/
+COPY ansible/ /tmp/ansible/
 COPY configs/ /opt/conclave/configs/
+COPY scripts/ /opt/conclave/scripts/
 COPY dashboard/ /opt/dashboard/
-COPY supervisord.conf /etc/supervisor/conf.d/conclave.conf
+COPY skills/ /opt/conclave/skills-src/
 
-# --- SSH setup ---
-RUN mkdir -p /var/run/sshd && \
-    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+RUN cd /tmp/ansible && ansible-playbook -i inventory.yml playbook.yml
+
+# Clean up Ansible
+RUN pip3 uninstall -y ansible ansible-core passlib && \
+    rm -rf /tmp/ansible /root/.ansible && \
+    apt-get purge -y software-properties-common && \
+    apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
+RUN chmod +x /opt/conclave/scripts/*.sh
 
 EXPOSE 8888 22 8008 1337 8000 3100 11434 8080 7681
 EXPOSE 52000-52100/udp
+
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+    CMD /opt/conclave/scripts/healthcheck.sh
 
 ENTRYPOINT ["/opt/conclave/scripts/startup.sh"]
 ```
 
 **Build-time notes:**
 
-- The exact `COPY --from` paths require validation against each upstream image's filesystem layout. Some images install to `/app`, others to `/usr/local/bin`.
-- Node.js version must be ≥18 for Planka compatibility.
-- N.eko binary extraction is the highest-risk step — may require copying additional shared libraries. The existing N.eko-in-single-container example will guide this.
-- Synapse can be installed via pip rather than copying from the image, which may be more reliable.
-- Pin all source images to specific version tags in production, not `latest`.
-
-### 6.2 Approximate Image Size
-
-| Component | Estimated Size |
-|---|---|
-| CUDA runtime base | ~3.5 GB |
-| System packages | ~800 MB |
-| Synapse (Python + deps) | ~400 MB |
-| Element Web assets | ~50 MB |
-| Planka (Node.js app) | ~300 MB |
-| ChromaDB (Python) | ~500 MB |
-| Ollama binary | ~200 MB |
-| N.eko + browser deps | ~1.5 GB |
-| pi + Claude Code (npm) | ~200 MB |
-| **Total estimate** | **~7.5 GB** |
+- Ansible and its dependencies are removed after the playbook runs to reduce image size.
+- Each service is installed by its own Ansible role (see `ansible/roles/`), gated by a `conclave_*_enabled` toggle in `ansible/group_vars/all.yml`.
+- N.eko is built from source (Go build of `github.com/m1k1o/neko`), along with `libclipboard`.
+- Playwright installs Chromium with system dependencies via `playwright install --with-deps chromium`.
+- Service versions are pinned in `ansible/group_vars/all.yml`.
 
 ---
 
@@ -718,7 +675,8 @@ startup.sh
 │      ├── nginx/nginx.conf + htpasswd
 │      ├── chromadb/.env
 │      ├── neko/.env
-│      └── coding agent configs (.pi/, .claude/)
+│      ├── coding agent configs (.pi/, .claude/)
+│      └── agent-env.sh (agent credentials for tmux sessions)
 ├── 5. Initialize PostgreSQL (first boot only)
 │      ├── pg_createcluster
 │      ├── Create synapse + planka databases and users
@@ -733,8 +691,8 @@ startup.sh
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `MATRIX_SERVER_NAME` | Yes | — | Matrix server domain name |
-| `EXTERNAL_HOSTNAME` | Yes | — | Pod's external hostname (Runpod proxy URL) |
+| `MATRIX_SERVER_NAME` | No | `conclave.local` | Matrix server domain name |
+| `EXTERNAL_HOSTNAME` | No | `localhost` | Pod's external hostname (Runpod proxy URL) |
 | `NGINX_USER` | No | `admin` | nginx basic auth username |
 | `NGINX_PASSWORD` | Yes | — | nginx basic auth password |
 | `SYNAPSE_DB_PASSWORD` | No | (generated) | PostgreSQL password for Synapse |
@@ -746,17 +704,22 @@ startup.sh
 | `NEKO_PASSWORD` | No | `neko` | N.eko viewer password |
 | `NEKO_ADMIN_PASSWORD` | No | `admin` | N.eko admin password |
 | `TTYD_USER` | No | `admin` | Web terminal username |
-| `TTYD_PASSWORD` | Yes | — | Web terminal password |
+| `TTYD_PASSWORD` | No | `$NGINX_PASSWORD` | Web terminal password (falls back to NGINX_PASSWORD) |
 | `ANTHROPIC_API_KEY` | No | — | API key for Claude Code and pi (Anthropic provider) |
 | `OPENAI_API_KEY` | No | — | API key for pi (OpenAI provider) |
 | `DEFAULT_OLLAMA_MODEL` | No | `llama3.1:8b` | Model to pre-pull on first boot |
 | `SSH_AUTHORIZED_KEYS` | No | — | Public keys (newline-separated) |
+| `CONCLAVE_SETUP_ONLY` | No | — | Set to `1` to run setup and exit without starting supervisord (for testing) |
+| `CONCLAVE_DEV_PASSWORD` | No | `changeme` | Password for the `dev` user (set at build time via Ansible, updated on each boot by startup.sh if provided) |
+| `CONCLAVE_AGENT_USER` | No | `pi` | Username for the agent user in Matrix and Planka |
 
-Secrets not provided via env vars are auto-generated on first boot and written to `/workspace/config/generated-secrets.env` for reference.
+Secrets not provided via env vars are auto-generated on first boot and written to `/workspace/config/generated-secrets.env` for reference. This includes `ADMIN_MATRIX_PASSWORD`, `AGENT_MATRIX_PASSWORD`, and `AGENT_PLANKA_PASSWORD` for the automatically created admin and agent users.
 
 ---
 
 ## 8. Supervisord Configuration
+
+The actual supervisord config is at `configs/supervisord.conf` and is deployed to `/etc/supervisor/conf.d/conclave.conf` by the base Ansible role.
 
 ```ini
 [supervisord]
@@ -773,17 +736,9 @@ supervisor.rpc_interface_factory = supervisor.rpc.interface:make_main_rpcinterfa
 [supervisorctl]
 serverurl=unix:///var/run/supervisor.sock
 
-# ===========================================================
-# Core Infrastructure (priority 10-20)
-# ===========================================================
-
-[program:nginx]
-command=nginx -g "daemon off;" -c /workspace/config/nginx/nginx.conf
-autostart=true
-autorestart=true
-priority=10
-stdout_logfile=/workspace/logs/nginx/stdout.log
-stderr_logfile=/workspace/logs/nginx/stderr.log
+; ===========================================================
+; Core Infrastructure (priority 10)
+; ===========================================================
 
 [program:postgres]
 command=/usr/lib/postgresql/16/bin/postgres -D /workspace/data/postgres
@@ -794,15 +749,29 @@ priority=10
 stdout_logfile=/workspace/logs/postgres/stdout.log
 stderr_logfile=/workspace/logs/postgres/stderr.log
 
+[program:nginx]
+command=nginx -g "daemon off;" -c /workspace/config/nginx/nginx.conf
+autostart=true
+autorestart=true
+priority=10
+stdout_logfile=/workspace/logs/nginx/stdout.log
+stderr_logfile=/workspace/logs/nginx/stderr.log
+
 [program:sshd]
 command=/usr/sbin/sshd -D
 autostart=true
 autorestart=true
 priority=10
 
-# ===========================================================
-# N.eko Display Stack (priority 15-16)
-# ===========================================================
+; ===========================================================
+; N.eko Display Stack (priority 14-17)
+; ===========================================================
+
+[program:dbus]
+command=dbus-daemon --system --nofork
+autostart=true
+autorestart=true
+priority=14
 
 [program:xvfb]
 command=Xvfb :99 -screen 0 1920x1080x24
@@ -823,9 +792,18 @@ autostart=true
 autorestart=true
 priority=16
 
-# ===========================================================
-# Application Services (priority 30-50)
-# ===========================================================
+[program:chromium]
+command=/usr/local/bin/chromium-pw --user-data-dir=/workspace/data/neko/chromium-profile --no-first-run --start-maximized --force-dark-mode --no-sandbox --disable-dev-shm-usage --disable-crash-reporter --disable-blink-features=AutomationControlled --use-gl=angle --use-angle=swiftshader --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 --remote-allow-origins=*
+environment=DISPLAY=":99"
+autostart=true
+autorestart=true
+priority=17
+stdout_logfile=/workspace/logs/neko/chromium-stdout.log
+stderr_logfile=/workspace/logs/neko/chromium-stderr.log
+
+; ===========================================================
+; Application Services (priority 30-50)
+; ===========================================================
 
 [program:synapse]
 command=python3 -m synapse.app.homeserver --config-path=/workspace/config/synapse/homeserver.yaml
@@ -834,16 +812,6 @@ autorestart=true
 priority=30
 stdout_logfile=/workspace/logs/synapse/stdout.log
 stderr_logfile=/workspace/logs/synapse/stderr.log
-
-[program:planka]
-command=node /opt/planka/server/app.js
-directory=/opt/planka
-environment=NODE_ENV="production",PORT="1337"
-autostart=true
-autorestart=true
-priority=40
-stdout_logfile=/workspace/logs/planka/stdout.log
-stderr_logfile=/workspace/logs/planka/stderr.log
 
 [program:chromadb]
 command=chroma run --host 0.0.0.0 --port 8000 --path /workspace/data/chromadb
@@ -854,13 +822,34 @@ stdout_logfile=/workspace/logs/chromadb/stdout.log
 stderr_logfile=/workspace/logs/chromadb/stderr.log
 
 [program:ollama]
-command=/usr/local/bin/ollama serve
+command=/usr/bin/ollama serve
 environment=OLLAMA_HOST="0.0.0.0:11434",OLLAMA_MODELS="/workspace/data/ollama/models",OLLAMA_KEEP_ALIVE="24h"
 autostart=true
 autorestart=true
 priority=30
 stdout_logfile=/workspace/logs/ollama/stdout.log
 stderr_logfile=/workspace/logs/ollama/stderr.log
+
+[program:ttyd]
+command=ttyd --port 7681 --writable --credential %(ENV_TTYD_USER)s:%(ENV_TTYD_PASSWORD)s /opt/conclave/scripts/tmux-workspace.sh
+user=dev
+directory=/workspace/data/coding/projects
+environment=HOME="/workspace/data/coding"
+autostart=true
+autorestart=true
+priority=30
+stdout_logfile=/workspace/logs/ttyd/stdout.log
+stderr_logfile=/workspace/logs/ttyd/stderr.log
+
+[program:planka]
+command=node /opt/planka/app.js
+directory=/opt/planka
+environment=NODE_ENV="production",PORT="1337"
+autostart=true
+autorestart=true
+priority=40
+stdout_logfile=/workspace/logs/planka/stdout.log
+stderr_logfile=/workspace/logs/planka/stderr.log
 
 [program:neko]
 command=/usr/local/bin/neko serve
@@ -871,19 +860,9 @@ priority=50
 stdout_logfile=/workspace/logs/neko/stdout.log
 stderr_logfile=/workspace/logs/neko/stderr.log
 
-[program:ttyd]
-command=ttyd --port 7681 --writable --credential %(ENV_TTYD_USER)s:%(ENV_TTYD_PASSWORD)s tmux new-session -A -s workspace
-directory=/workspace/data/coding/projects
-environment=HOME="/workspace/data/coding"
-autostart=true
-autorestart=true
-priority=30
-stdout_logfile=/workspace/logs/ttyd/stdout.log
-stderr_logfile=/workspace/logs/ttyd/stderr.log
-
-# ===========================================================
-# Post-Start Tasks (priority 99, oneshot)
-# ===========================================================
+; ===========================================================
+; Post-Start Tasks (priority 99, oneshot)
+; ===========================================================
 
 [program:ollama-pull]
 command=/opt/conclave/scripts/ollama-pull.sh
@@ -894,6 +873,16 @@ exitcodes=0
 priority=99
 stdout_logfile=/workspace/logs/ollama/pull.log
 stderr_logfile=/workspace/logs/ollama/pull-error.log
+
+[program:create-users]
+command=/opt/conclave/scripts/create-users.sh
+autostart=true
+autorestart=false
+startsecs=0
+exitcodes=0
+priority=99
+stdout_logfile=/workspace/logs/create-users.log
+stderr_logfile=/workspace/logs/create-users-error.log
 ```
 
 ---
@@ -931,23 +920,71 @@ Built into the image at `/opt/dashboard/`. No persistence required.
 
 ---
 
-## 11. Known Risks and Mitigations
+## 11. Security Hardening
+
+### 11.1 SSH Hardening
+
+The `ssh` Ansible role applies the following `sshd_config` settings:
+
+| Setting | Value |
+|---|---|
+| `PermitRootLogin` | `no` |
+| `PasswordAuthentication` | `no` |
+| `PubkeyAuthentication` | `yes` |
+| `X11Forwarding` | `no` |
+| `AllowAgentForwarding` | `no` |
+| `MaxAuthTries` | `3` |
+| `LoginGraceTime` | `30` |
+
+SSH keys are installed from the `SSH_AUTHORIZED_KEYS` environment variable into `/workspace/data/coding/.ssh/authorized_keys` at each boot by `startup.sh`. Users connect as the `dev` user.
+
+### 11.2 fail2ban
+
+The `fail2ban` Ansible role configures two jails:
+
+| Jail | Port | Max Retries | Ban Time | Log Path |
+|---|---|---|---|---|
+| `sshd` | `ssh` | 5 | 3600s (1 hour) | (default) |
+| `nginx-http-auth` | `http,https` | 5 | 3600s (1 hour) | `/workspace/logs/nginx/stderr.log` |
+
+### 11.3 Dev User
+
+An unprivileged `dev` user is created by the `base` Ansible role:
+
+- **Home directory:** `/workspace/data/coding` (on persistent volume)
+- **Groups:** `sudo`
+- **Shell:** `/bin/bash`
+- **Password:** Set via `CONCLAVE_DEV_PASSWORD` (default `changeme`), hashed with SHA-512 at build time. If `CONCLAVE_DEV_PASSWORD` is set as an environment variable at runtime, `startup.sh` updates the password on each boot.
+
+The `dev` user has `sudo` access with password for administrative tasks. Interactive sessions (ttyd/tmux) run as `dev`, not root.
+
+### 11.4 Validation
+
+The `scripts/test-security.sh` script validates all hardening settings:
+- Runs the Ansible playbook and `startup.sh` in setup-only mode
+- Verifies dev user existence, groups, home directory, and shell
+- Checks all `sshd_config` settings
+- Confirms fail2ban jails are configured
+- Validates directory ownership and permissions
+
+---
+
+## 12. Known Risks and Mitigations
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| N.eko native integration | High | Most complex service to extract from Docker. An existing reference example will be followed. **Fallback:** install Podman in the container and run N.eko as a nested container. |
+| N.eko source build | Medium | N.eko is built from source with Go and requires libclipboard and GStreamer. Version pinned in `group_vars/all.yml`. |
 | Planka path-prefix support | Medium | Planka may not natively support `/planka/` subpath. Test with `BASE_URL` set to the full prefixed URL. **Fallback:** direct port access only. |
 | Memory pressure | Medium | System RAM on A100/H100 pods is typically 128–256GB — ample for all services. Ollama with a loaded model is the heaviest consumer. Set `OLLAMA_KEEP_ALIVE` appropriately; unload models when idle. |
 | ChromaDB admin UI maturity | Low | The ecosystem of ChromaDB GUIs is young. **Fallback:** Swagger UI or `chroma` CLI. |
-| Upstream image changes | Low | Multi-stage `COPY --from` may break if upstream images restructure. **Mitigation:** pin image tags to specific versions. |
 | WebRTC UDP on Runpod | Medium | Runpod may not expose arbitrary UDP ranges. **Mitigation:** `NEKO_ICELITE=true`; test with TURN relay if direct UDP fails. |
 | Synapse resource usage | Medium | Synapse can be memory-hungry in large federated rooms. Mitigated by disabling federation by default and keeping the deployment private. |
 
 ---
 
-## 12. Build and Deployment
+## 13. Build and Deployment
 
-### 12.1 Building
+### 13.1 Building
 
 ```bash
 docker build -t conclave:latest .
@@ -955,7 +992,7 @@ docker tag conclave:latest your-registry/conclave:latest
 docker push your-registry/conclave:latest
 ```
 
-### 12.2 Runpod Template
+### 13.2 Runpod Template
 
 | Field | Value |
 |---|---|
@@ -967,7 +1004,7 @@ docker push your-registry/conclave:latest
 | Exposed UDP ports | `52000-52100` |
 | Environment variables | See Section 7.2 |
 
-### 12.3 First Boot Checklist
+### 13.3 First Boot Checklist
 
 1. Pod starts → `startup.sh` detects no `/workspace/.initialized`
 2. Directory structure created under `/workspace/`
@@ -976,25 +1013,54 @@ docker push your-registry/conclave:latest
 5. Synapse config generated and patched
 6. Supervisord launched — all services start
 7. Ollama pulls default model in background
-8. Access dashboard at `https://{pod-id}-8888.proxy.runpod.net/`
-9. Register first Synapse admin user via CLI
-10. Log into Element, Planka; configure pi and Claude Code in the terminal
+8. Admin and agent users created in Matrix and Planka (background oneshot)
+9. Access dashboard at `https://{pod-id}-8888.proxy.runpod.net/`
+10. Log into Element and Planka with admin or agent credentials
+11. Agent credentials are available in the tmux terminal via `agent-env.sh`
 
 ---
 
-## 13. File Manifest
+## 14. File Manifest
 
 ```
 conclave/
-├── Dockerfile
-├── supervisord.conf
+├── Dockerfile                       # Ansible-based single-stage build
+├── CLAUDE.md                        # LLM behavioral guidelines
+├── spec.md                          # This specification
+├── README.md                        # Getting-started guide
+├── .gitignore
+├── ansible/
+│   ├── playbook.yml                 # Master playbook (12 roles)
+│   ├── inventory.yml                # Localhost inventory
+│   ├── group_vars/
+│   │   └── all.yml                  # Service toggles, versions, ports
+│   └── roles/
+│       ├── base/tasks/main.yml      # System packages, dev user, Node.js
+│       ├── postgres/tasks/main.yml
+│       ├── synapse/tasks/main.yml
+│       ├── element_web/tasks/main.yml
+│       ├── planka/tasks/main.yml
+│       ├── chromadb/tasks/main.yml
+│       ├── ollama/tasks/main.yml
+│       ├── neko/tasks/main.yml      # Build from source + Playwright Chromium
+│       ├── coding_agents/tasks/main.yml
+│       ├── ttyd/tasks/main.yml
+│       ├── nginx/tasks/main.yml
+│       ├── ssh/tasks/main.yml       # SSH hardening
+│       └── fail2ban/tasks/main.yml  # Intrusion prevention
 ├── scripts/
-│   ├── startup.sh                # Entrypoint — first-boot init + supervisor launch
-│   ├── ollama-pull.sh            # Background model pre-pull
-│   ├── init-postgres.sh          # PostgreSQL first-boot setup
-│   ├── init-synapse.sh           # Synapse config generation
-│   └── healthcheck.sh            # Optional container health check
+│   ├── startup.sh                   # Entrypoint — first-boot init + supervisor launch
+│   ├── ollama-pull.sh               # Background model pre-pull
+│   ├── create-users.sh             # Post-start user creation (oneshot)
+│   ├── tmux-workspace.sh           # tmux session launcher (sourced by ttyd)
+│   ├── init-postgres.sh             # PostgreSQL first-boot setup
+│   ├── init-synapse.sh              # Synapse config generation
+│   ├── healthcheck.sh               # Container health check
+│   ├── dev.sh                       # Local build + run helper
+│   ├── launch-runpod.sh             # Runpod pod deployment via API
+│   └── test-security.sh             # Security hardening validation
 ├── configs/
+│   ├── supervisord.conf             # Supervisord process definitions
 │   ├── nginx/
 │   │   └── nginx.conf.template
 │   ├── synapse/
@@ -1002,16 +1068,24 @@ conclave/
 │   ├── element-web/
 │   │   └── config.json.template
 │   └── coding/
-│       ├── pi-models.json        # Default Ollama model definition for pi
-│       └── tmux.conf             # Default tmux configuration
-├── dashboard/
-│   └── index.html
-└── README.md
+│       ├── pi-models.json           # Default Ollama model definition for pi
+│       └── tmux.conf                # Default tmux configuration
+├── skills/
+│   ├── claude-code/
+│   │   └── launch-conclave.md
+│   ├── matrix-read/
+│   │   ├── SKILL.md
+│   │   └── matrix_read.py
+│   └── matrix-send/
+│       ├── SKILL.md
+│       └── send.sh
+└── dashboard/
+    └── index.html
 ```
 
 ---
 
-## 14. Future Enhancements
+## 15. Future Enhancements
 
 - **Matrix bridges:** Discord, IRC, or Slack bridges as additional supervised processes.
 - **Monitoring:** Prometheus node_exporter + Grafana for resource visibility.

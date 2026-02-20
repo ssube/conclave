@@ -40,6 +40,9 @@ if [ ! -f "$WORKSPACE/.initialized" ]; then
     SYNAPSE_MACAROON_SECRET_KEY="${SYNAPSE_MACAROON_SECRET_KEY:-$(openssl rand -hex 32)}"
     SYNAPSE_FORM_SECRET="${SYNAPSE_FORM_SECRET:-$(openssl rand -hex 32)}"
     SYNAPSE_SIGNING_KEY="$(openssl rand -hex 32)"
+    ADMIN_MATRIX_PASSWORD="${ADMIN_MATRIX_PASSWORD:-$(openssl rand -hex 16)}"
+    AGENT_MATRIX_PASSWORD="${AGENT_MATRIX_PASSWORD:-$(openssl rand -hex 16)}"
+    AGENT_PLANKA_PASSWORD="${AGENT_PLANKA_PASSWORD:-$(openssl rand -hex 16)}"
 
     cat > "$SECRETS_FILE" <<SECRETS_EOF
 SYNAPSE_DB_PASSWORD=$SYNAPSE_DB_PASSWORD
@@ -49,6 +52,9 @@ CHROMADB_TOKEN=$CHROMADB_TOKEN
 SYNAPSE_REGISTRATION_SHARED_SECRET=$SYNAPSE_REGISTRATION_SHARED_SECRET
 SYNAPSE_MACAROON_SECRET_KEY=$SYNAPSE_MACAROON_SECRET_KEY
 SYNAPSE_FORM_SECRET=$SYNAPSE_FORM_SECRET
+ADMIN_MATRIX_PASSWORD=$ADMIN_MATRIX_PASSWORD
+AGENT_MATRIX_PASSWORD=$AGENT_MATRIX_PASSWORD
+AGENT_PLANKA_PASSWORD=$AGENT_PLANKA_PASSWORD
 SECRETS_EOF
     chmod 600 "$SECRETS_FILE"
 
@@ -64,6 +70,7 @@ fi
 # ---------------------------------------------------------------
 
 # Defaults for optional env vars
+export CONCLAVE_AGENT_USER="${CONCLAVE_AGENT_USER:-pi}"
 export MATRIX_SERVER_NAME="${MATRIX_SERVER_NAME:-conclave.local}"
 export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-localhost}"
 export NGINX_USER="${NGINX_USER:-admin}"
@@ -75,6 +82,11 @@ export NEKO_ADMIN_PASSWORD="${NEKO_ADMIN_PASSWORD:-admin}"
 export PLANKA_ADMIN_EMAIL="${PLANKA_ADMIN_EMAIL:-admin@local}"
 export PLANKA_ADMIN_PASSWORD="${PLANKA_ADMIN_PASSWORD:-changeme}"
 export DEFAULT_OLLAMA_MODEL="${DEFAULT_OLLAMA_MODEL:-llama3.1:8b}"
+
+# Update dev user password if provided
+if [ -n "${CONCLAVE_DEV_PASSWORD:-}" ]; then
+    echo "dev:${CONCLAVE_DEV_PASSWORD}" | chpasswd
+fi
 
 # Re-source secrets (they exist now whether first boot or not)
 set -a
@@ -121,6 +133,26 @@ NEKO_BIND=0.0.0.0:8080
 NEKO_EPR=52000-52100
 NEKO_ICELITE=true
 NEKO_EOF
+
+# Write agent credentials env file (for coding agents in tmux)
+AGENT_ENV_FILE="$WORKSPACE/config/agent-env.sh"
+cat > "$AGENT_ENV_FILE" <<AGENT_EOF
+# Conclave agent credentials — sourced into tmux sessions
+AGENT_MATRIX_USER=${CONCLAVE_AGENT_USER}
+AGENT_MATRIX_PASSWORD=${AGENT_MATRIX_PASSWORD}
+AGENT_MATRIX_URL=https://${EXTERNAL_HOSTNAME}
+AGENT_MATRIX_SERVER_NAME=${MATRIX_SERVER_NAME}
+AGENT_PLANKA_USER=${CONCLAVE_AGENT_USER}
+AGENT_PLANKA_EMAIL=${CONCLAVE_AGENT_USER}@local
+AGENT_PLANKA_PASSWORD=${AGENT_PLANKA_PASSWORD}
+AGENT_PLANKA_URL=https://${EXTERNAL_HOSTNAME}/planka
+AGENT_NEKO_PASSWORD=${NEKO_ADMIN_PASSWORD}
+AGENT_CHROMADB_TOKEN=${CHROMADB_TOKEN}
+AGENT_CHROMADB_URL=http://127.0.0.1:8000
+AGENT_OLLAMA_URL=http://127.0.0.1:11434
+AGENT_EOF
+chmod 600 "$AGENT_ENV_FILE"
+chown dev:dev "$AGENT_ENV_FILE"
 
 # SSH authorized_keys for dev user
 if [ -n "${SSH_AUTHORIZED_KEYS:-}" ]; then
@@ -174,6 +206,7 @@ touch "$WORKSPACE/.initialized"
 # ---------------------------------------------------------------
 export TTYD_USER TTYD_PASSWORD
 export NEKO_PASSWORD NEKO_ADMIN_PASSWORD
+export CONCLAVE_AGENT_USER
 
 # Source Neko and ChromaDB envs for supervisord
 set -a

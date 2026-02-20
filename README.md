@@ -1,0 +1,215 @@
+# Conclave
+
+A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a kanban board, AI coding agents, LLM inference, a vector database, and a remote browser session — all managed by supervisord behind an nginx reverse proxy, deployed as one unit onto a GPU pod.
+
+## Services
+
+| Service | Port | Path | Description |
+|---|---|---|---|
+| nginx | 8888 | `/` | Unified reverse proxy and dashboard |
+| Matrix Synapse | 8008 | `/_matrix/` | Chat homeserver |
+| Element Web | — | `/element/` | Matrix web client (static files) |
+| PostgreSQL 16 | 5432 | — | Shared database (Synapse + Planka) |
+| Planka | 1337 | `/planka/` | Kanban project management |
+| ChromaDB | 8000 | `/chromadb/` | Vector database for RAG |
+| ChromaDB Admin | 3100 | `/chromadb-admin/` | Vector database browser |
+| Ollama | 11434 | `/ollama/` | LLM inference (OpenAI-compatible API) |
+| N.eko | 8080 | `/neko/` | WebRTC remote browser session |
+| Chromium CDP | 9222 | — | Browser automation (internal) |
+| ttyd | 7681 | `/terminal/` | Web terminal (tmux) |
+| SSH | 22 | — | Shell access as `dev` user |
+
+## Quick Start
+
+Build and run locally with the dev script:
+
+```bash
+bash scripts/dev.sh
+```
+
+This builds the Docker image and starts the container with sensible defaults. Once running:
+
+- **Dashboard:** http://localhost:8888 (user: `admin`, password: `admin`)
+- **Terminal:** http://localhost:7681
+- **SSH:** `ssh -p 2222 dev@localhost`
+
+Subcommands: `build`, `run`, `stop`, `logs`. Override the container runtime with `CONTAINER_RUNTIME=podman`.
+
+## Runpod Deployment
+
+Deploy to a Runpod GPU pod:
+
+```bash
+export RUNPOD_API_KEY="your-api-key"
+
+bash scripts/launch-runpod.sh \
+    --image your-registry/conclave:latest \
+    --env NGINX_PASSWORD=your-password \
+    --env ANTHROPIC_API_KEY=sk-... \
+    --env SSH_AUTHORIZED_KEYS="ssh-ed25519 AAAA..."
+```
+
+Options: `--gpu-type`, `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatable).
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `NGINX_PASSWORD` | Yes | — | nginx basic auth password |
+| `MATRIX_SERVER_NAME` | No | `conclave.local` | Matrix server domain |
+| `EXTERNAL_HOSTNAME` | No | `localhost` | Pod's external hostname |
+| `NGINX_USER` | No | `admin` | nginx basic auth username |
+| `TTYD_USER` | No | `admin` | Web terminal username |
+| `TTYD_PASSWORD` | No | `$NGINX_PASSWORD` | Web terminal password |
+| `NEKO_PASSWORD` | No | `neko` | N.eko viewer password |
+| `NEKO_ADMIN_PASSWORD` | No | `admin` | N.eko admin password |
+| `PLANKA_ADMIN_EMAIL` | No | `admin@local` | Planka admin email |
+| `PLANKA_ADMIN_PASSWORD` | No | `changeme` | Planka admin password |
+| `DEFAULT_OLLAMA_MODEL` | No | `llama3.1:8b` | Model to pre-pull on first boot |
+| `ANTHROPIC_API_KEY` | No | — | API key for Claude Code and pi |
+| `OPENAI_API_KEY` | No | — | API key for pi (OpenAI provider) |
+| `SSH_AUTHORIZED_KEYS` | No | — | SSH public keys (newline-separated) |
+| `CONCLAVE_DEV_PASSWORD` | No | `changeme` | Password for `dev` user (updated on each boot if set) |
+| `CONCLAVE_AGENT_USER` | No | `pi` | Username for the agent user in Matrix and Planka |
+| `CONCLAVE_SETUP_ONLY` | No | — | Set to `1` to run setup and exit (for testing) |
+
+Database passwords (`SYNAPSE_DB_PASSWORD`, `PLANKA_DB_PASSWORD`), `PLANKA_SECRET_KEY`, `CHROMADB_TOKEN`, `ADMIN_MATRIX_PASSWORD`, `AGENT_MATRIX_PASSWORD`, and `AGENT_PLANKA_PASSWORD` are auto-generated on first boot if not provided, and saved to `/workspace/config/generated-secrets.env`.
+
+## First Boot
+
+On first start, `startup.sh` automatically:
+
+1. Creates the `/workspace/{config,data,logs}/` directory tree
+2. Generates secrets for any not provided via environment variables
+3. Initializes PostgreSQL and creates `synapse` + `planka` databases
+4. Generates Synapse homeserver config
+5. Renders config templates (nginx, Element Web, Planka, ChromaDB, N.eko)
+6. Installs SSH authorized keys (if `SSH_AUTHORIZED_KEYS` is set)
+7. Writes agent credentials to `/workspace/config/agent-env.sh`
+8. Starts supervisord (all services come up in priority order)
+9. Pulls the default Ollama model in the background
+10. Creates admin and agent users in Matrix and Planka (background oneshot)
+
+Subsequent boots skip database initialization and secret generation, re-render configs (including agent-env.sh), and start supervisord. User creation is idempotent — existing users are skipped.
+
+## SSH Access
+
+SSH is configured for key-based authentication only. Pass your public key(s) via the `SSH_AUTHORIZED_KEYS` environment variable:
+
+```bash
+docker run -e SSH_AUTHORIZED_KEYS="$(cat ~/.ssh/id_ed25519.pub)" ...
+```
+
+Connect as the `dev` user:
+
+```bash
+ssh -p 2222 dev@localhost        # local dev
+ssh dev@{pod-id}-22.proxy.runpod.net  # Runpod
+```
+
+Keys are written to `/workspace/data/coding/.ssh/authorized_keys` on the persistent volume.
+
+## Agent Credentials
+
+On each boot, `startup.sh` writes `/workspace/config/agent-env.sh` with credentials for the coding agents (pi, Claude Code) to authenticate to Conclave services. This file is sourced into tmux sessions automatically.
+
+Available environment variables in the tmux session:
+
+| Variable | Description |
+|---|---|
+| `AGENT_MATRIX_USER` | Matrix username for the agent |
+| `AGENT_MATRIX_PASSWORD` | Matrix password for the agent |
+| `AGENT_MATRIX_URL` | Matrix homeserver URL |
+| `AGENT_MATRIX_SERVER_NAME` | Matrix server name |
+| `AGENT_PLANKA_USER` | Planka username for the agent |
+| `AGENT_PLANKA_EMAIL` | Planka email for the agent |
+| `AGENT_PLANKA_PASSWORD` | Planka password for the agent |
+| `AGENT_PLANKA_URL` | Planka base URL |
+| `AGENT_NEKO_PASSWORD` | N.eko admin password |
+| `AGENT_CHROMADB_TOKEN` | ChromaDB auth token |
+| `AGENT_CHROMADB_URL` | ChromaDB API URL |
+| `AGENT_OLLAMA_URL` | Ollama API URL |
+
+A Matrix admin user (`admin`) and a Planka admin user are also created automatically (see `scripts/create-users.sh`).
+
+## Security
+
+- **SSH hardening:** `PermitRootLogin no`, `PasswordAuthentication no`, `X11Forwarding no`, `AllowAgentForwarding no`, `MaxAuthTries 3`, `LoginGraceTime 30`
+- **fail2ban:** Jails for `sshd` and `nginx-http-auth` (5 retries, 1-hour ban)
+- **Dev user:** Unprivileged `dev` user for interactive sessions (ttyd, SSH). Has `sudo` with password. Root access is not available via SSH.
+- **nginx basic auth:** Protects dashboard, Ollama API, and ChromaDB Admin
+- **Secrets:** Auto-generated on first boot, stored with `chmod 600`
+
+Validate hardening with:
+
+```bash
+sudo bash scripts/test-security.sh
+```
+
+## Development
+
+### Building
+
+```bash
+docker build -t conclave:latest .
+```
+
+The Dockerfile installs Ansible temporarily, runs the playbook (`ansible/playbook.yml`), then removes Ansible from the final image.
+
+### Running the Ansible playbook directly
+
+```bash
+cd ansible && ansible-playbook -i inventory.yml playbook.yml
+```
+
+Individual services can be toggled via `ansible/group_vars/all.yml` (e.g., `conclave_neko_enabled: false`).
+
+### Testing
+
+```bash
+sudo bash scripts/test-security.sh
+```
+
+Runs the Ansible playbook, executes `startup.sh` in setup-only mode, then validates dev user, SSH hardening, fail2ban jails, directory ownership, and supervisord config.
+
+## Project Structure
+
+```
+conclave/
+├── Dockerfile                       # Ansible-based build
+├── ansible/
+│   ├── playbook.yml                 # 12 roles: base → services → security
+│   ├── inventory.yml
+│   ├── group_vars/all.yml           # Service toggles, versions, ports
+│   └── roles/                       # One role per service + ssh + fail2ban
+├── scripts/
+│   ├── startup.sh                   # Container entrypoint
+│   ├── dev.sh                       # Local build + run
+│   ├── launch-runpod.sh             # Runpod deployment
+│   ├── test-security.sh             # Security validation
+│   ├── init-postgres.sh             # PostgreSQL first-boot
+│   ├── init-synapse.sh              # Synapse config generation
+│   ├── ollama-pull.sh               # Background model pull
+│   ├── create-users.sh             # Post-start user creation
+│   ├── tmux-workspace.sh           # tmux session launcher
+│   └── healthcheck.sh               # Container health check
+├── configs/
+│   ├── supervisord.conf             # Process manager definitions
+│   ├── nginx/nginx.conf.template
+│   ├── synapse/homeserver.override.yaml
+│   ├── element-web/config.json.template
+│   └── coding/{pi-models.json,tmux.conf}
+├── skills/                          # Claude Code and pi skills
+├── dashboard/index.html             # Service status page
+└── spec.md                          # Full implementation specification
+```
+
+## Architecture
+
+Conclave runs all services as native processes managed by **supervisord** inside a single Docker container based on `nvidia/cuda:12.4.1-runtime-ubuntu22.04`.
+
+**Build:** An Ansible playbook with per-service roles runs during `docker build`. Each role installs its service (via apt, pip, npm, or source build), with versions pinned in `ansible/group_vars/all.yml`.
+
+**Runtime:** `startup.sh` handles first-boot initialization (secrets, databases, configs), then hands off to supervisord. All application state persists on the `/workspace` volume across pod restarts.
+
+**Networking:** nginx on port 8888 reverse-proxies all services by path prefix. Each service also listens on its own port for direct access.
