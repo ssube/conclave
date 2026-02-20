@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip software-properties-common && \
-    pip3 install --break-system-packages ansible && \
+    pip3 install ansible && \
     rm -rf /var/lib/apt/lists/*
 
 COPY ansible/ /tmp/ansible/
