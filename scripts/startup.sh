@@ -22,6 +22,9 @@ mkdir -p "$WORKSPACE"/config/{nginx,synapse,element-web,planka,chromadb,neko,ssh
 mkdir -p "$WORKSPACE"/data/{synapse/media_store,postgres,planka,chromadb,ollama/models,neko/chromium-profile,coding/.pi/agent/{skills,prompts,extensions,themes},coding/.claude/skills,coding/projects}
 mkdir -p "$WORKSPACE"/logs/{nginx,synapse,postgres,planka,chromadb,ollama,neko,ttyd}
 
+# Ensure dev user owns coding workspace
+chown -R dev:dev "$WORKSPACE/data/coding/"
+
 # ---------------------------------------------------------------
 # 3. First boot: generate secrets + init services
 # ---------------------------------------------------------------
@@ -119,12 +122,13 @@ NEKO_EPR=52000-52100
 NEKO_ICELITE=true
 NEKO_EOF
 
-# SSH authorized_keys
+# SSH authorized_keys for dev user
 if [ -n "${SSH_AUTHORIZED_KEYS:-}" ]; then
-    mkdir -p /root/.ssh
-    echo "$SSH_AUTHORIZED_KEYS" > /root/.ssh/authorized_keys
-    chmod 700 /root/.ssh
-    chmod 600 /root/.ssh/authorized_keys
+    mkdir -p /workspace/data/coding/.ssh
+    echo "$SSH_AUTHORIZED_KEYS" > /workspace/data/coding/.ssh/authorized_keys
+    chmod 700 /workspace/data/coding/.ssh
+    chmod 600 /workspace/data/coding/.ssh/authorized_keys
+    chown -R dev:dev /workspace/data/coding/.ssh
 fi
 
 # Sync pi assets (don't overwrite user edits for prompts/themes)
@@ -137,6 +141,9 @@ rsync -a /opt/conclave/skills/claude-code/ "$WORKSPACE/data/coding/.claude/skill
 # Copy pi-models.json and tmux.conf if not present (don't overwrite user edits)
 cp -n /opt/conclave/configs/coding/pi-models.json "$WORKSPACE/data/coding/.pi/agent/models.json" 2>/dev/null || true
 cp -n /opt/conclave/configs/coding/tmux.conf "$WORKSPACE/data/coding/.tmux.conf" 2>/dev/null || true
+
+# Re-chown coding dir after syncing assets (rsync/cp run as root)
+chown -R dev:dev "$WORKSPACE/data/coding/"
 
 # Generate dashboard env.json
 cat > /opt/dashboard/env.json <<ENV_EOF

@@ -37,3 +37,6 @@
 
     - role: ssh
       when: conclave_ssh_enabled | default(true)
+
+    - role: fail2ban
+      when: conclave_fail2ban_enabled | default(true)

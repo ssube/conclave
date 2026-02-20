@@ -11,6 +11,11 @@ conclave_coding_agents_enabled: true
 conclave_ttyd_enabled: true
 conclave_nginx_enabled: true
 conclave_ssh_enabled: true
+conclave_fail2ban_enabled: true
+
+# Interactive user
+conclave_dev_user: dev
+conclave_dev_password: "{{ lookup('env', 'CONCLAVE_DEV_PASSWORD') | default('changeme', true) }}"
 
 # Paths
 conclave_workspace: /workspace

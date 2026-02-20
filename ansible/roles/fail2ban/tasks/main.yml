@@ -1,0 +1,28 @@
+---
+- name: Install fail2ban
+  apt:
+    name: fail2ban
+    state: present
+
+- name: Configure fail2ban jail for sshd
+  copy:
+    dest: /etc/fail2ban/jail.d/sshd.conf
+    content: |
+      [sshd]
+      enabled = true
+      port = ssh
+      filter = sshd
+      maxretry = 5
+      bantime = 3600
+
+- name: Configure fail2ban jail for nginx-http-auth
+  copy:
+    dest: /etc/fail2ban/jail.d/nginx-http-auth.conf
+    content: |
+      [nginx-http-auth]
+      enabled = true
+      port = http,https
+      filter = nginx-http-auth
+      logpath = /workspace/logs/nginx/stderr.log
+      maxretry = 5
+      bantime = 3600

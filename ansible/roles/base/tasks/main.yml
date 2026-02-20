@@ -45,6 +45,15 @@
     state: present
     update_cache: true
 
+- name: Create interactive dev user
+  user:
+    name: "{{ conclave_dev_user }}"
+    shell: /bin/bash
+    home: /workspace/data/coding
+    create_home: true
+    groups: sudo
+    password: "{{ conclave_dev_password | password_hash('sha512') }}"
+
 - name: Create neko user
   user:
     name: neko
