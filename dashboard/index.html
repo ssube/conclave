@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conclave</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: #0d1117; color: #c9d1d9; line-height: 1.6; padding: 2rem; max-width: 1000px; margin: 0 auto; }
+  h1 { color: #58a6ff; margin-bottom: 0.25rem; font-size: 1.8rem; }
+  h2 { color: #8b949e; margin: 2rem 0 1rem; font-size: 1.2rem; border-bottom: 1px solid #21262d; padding-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; }
+  .services { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+  .service { background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 1rem; }
+  .service-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .service-name { font-weight: 600; color: #c9d1d9; }
+  .service-name a { color: #58a6ff; text-decoration: none; }
+  .service-name a:hover { text-decoration: underline; }
+  .status { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-ok { background: #3fb950; }
+  .status-fail { background: #f85149; }
+  .status-pending { background: #8b949e; }
+  .service-desc { color: #8b949e; font-size: 0.85rem; }
+  .service-port { color: #6e7681; font-size: 0.8rem; margin-top: 0.25rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #21262d; }
+  th { color: #8b949e; font-size: 0.85rem; }
+  td { font-size: 0.9rem; }
+  code { background: #161b22; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.85rem; }
+  .guide { background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 1.5rem; }
+  .guide ol { padding-left: 1.5rem; }
+  .guide li { margin-bottom: 0.5rem; }
+  .env-info { color: #6e7681; font-size: 0.85rem; margin-top: 2rem; }
+</style>
+</head>
+<body>
+
+<h1>Conclave</h1>
+<p class="subtitle">Self-hosted AI workspace</p>
+
+<h2>Services</h2>
+<div class="services" id="services">
+  <div class="service">
+    <div class="service-header">
+      <span class="service-name"><a href="/element/" target="_blank">Element Web</a></span>
+      <span class="status status-pending" id="s-synapse"></span>
+    </div>
+    <div class="service-desc">Matrix chat client (Synapse homeserver)</div>
+    <div class="service-port">Port 8008 | <code>/_matrix/</code></div>
+  </div>
+
+  <div class="service">
+    <div class="service-header">
+      <span class="service-name"><a href="/planka/" target="_blank">Planka</a></span>
+      <span class="status status-pending" id="s-planka"></span>
+    </div>
+    <div class="service-desc">Kanban project management</div>
+    <div class="service-port">Port 1337 | <code>/planka/</code></div>
+  </div>
+
+  <div class="service">
+    <div class="service-header">
+      <span class="service-name"><a href="/chromadb/" target="_blank">ChromaDB</a></span>
+      <span class="status status-pending" id="s-chromadb"></span>
+    </div>
+    <div class="service-desc">Vector database for RAG</div>
+    <div class="service-port">Port 8000 | <code>/chromadb/</code></div>
+  </div>
+
+  <div class="service">
+    <div class="service-header">
+      <span class="service-name"><a href="/ollama/api/tags" target="_blank">Ollama</a></span>
+      <span class="status status-pending" id="s-ollama"></span>
+    </div>
+    <div class="service-desc">LLM inference (OpenAI-compatible API)</div>
+    <div class="service-port">Port 11434 | <code>/ollama/</code></div>
+  </div>
+
+  <div class="service">
+    <div class="service-header">
+      <span class="service-name"><a href="/neko/" target="_blank">N.eko</a></span>
+      <span class="status status-pending" id="s-neko"></span>
+    </div>
+    <div class="service-desc">WebRTC browser session + CDP</div>
+    <div class="service-port">Port 8080 | <code>/neko/</code></div>
+  </div>
+
+  <div class="service">
+    <div class="service-header">
+      <span class="service-name"><a href="/terminal/" target="_blank">Terminal</a></span>
+      <span class="status status-pending" id="s-ttyd"></span>
+    </div>
+    <div class="service-desc">Web terminal (tmux workspace)</div>
+    <div class="service-port">Port 7681 | <code>/terminal/</code></div>
+  </div>
+</div>
+
+<h2>Port Reference</h2>
+<table>
+  <thead>
+    <tr><th>Port</th><th>Service</th><th>Exposure</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>8888</td><td>nginx (unified entry)</td><td>Primary</td></tr>
+    <tr><td>22</td><td>SSH</td><td>Direct</td></tr>
+    <tr><td>8008</td><td>Synapse</td><td>Fallback</td></tr>
+    <tr><td>1337</td><td>Planka</td><td>Fallback</td></tr>
+    <tr><td>5432</td><td>PostgreSQL</td><td>Internal only</td></tr>
+    <tr><td>8000</td><td>ChromaDB</td><td>Fallback</td></tr>
+    <tr><td>3100</td><td>ChromaDB Admin</td><td>Fallback</td></tr>
+    <tr><td>11434</td><td>Ollama</td><td>Fallback</td></tr>
+    <tr><td>8080</td><td>N.eko</td><td>Fallback</td></tr>
+    <tr><td>7681</td><td>ttyd</td><td>Fallback</td></tr>
+    <tr><td>52000-52100/udp</td><td>N.eko WebRTC</td><td>Direct</td></tr>
+  </tbody>
+</table>
+
+<h2>Quick Start</h2>
+<div class="guide">
+  <ol>
+    <li>Open <a href="/terminal/" style="color:#58a6ff">Terminal</a> to access the tmux workspace</li>
+    <li>Register a Synapse admin user:
+      <br><code>register_new_matrix_user -c /workspace/config/synapse/homeserver.yaml http://localhost:8008</code></li>
+    <li>Log into <a href="/element/" style="color:#58a6ff">Element</a> with the admin account</li>
+    <li>Create a second user for the AI agent (conclave-agent)</li>
+    <li>Open <a href="/planka/" style="color:#58a6ff">Planka</a> and log in with admin credentials</li>
+    <li>Configure pi: edit <code>/workspace/data/coding/.pi/agent/SYSTEM.md</code></li>
+    <li>Set API keys in the terminal:
+      <br><code>export ANTHROPIC_API_KEY=sk-ant-...</code></li>
+    <li>Start a coding session: <code>pi</code> or <code>claude</code></li>
+  </ol>
+</div>
+
+<div class="env-info" id="env-info"></div>
+
+<script>
+async function checkHealth() {
+  const checks = [
+    { id: 's-synapse',  url: '/_matrix/client/versions' },
+    { id: 's-planka',   url: '/planka/' },
+    { id: 's-chromadb', url: '/chromadb/api/v1/heartbeat' },
+    { id: 's-ollama',   url: '/ollama/api/tags' },
+    { id: 's-neko',     url: '/neko/' },
+    { id: 's-ttyd',     url: '/terminal/' },
+  ];
+
+  for (const check of checks) {
+    try {
+      const resp = await fetch(check.url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+      const el = document.getElementById(check.id);
+      el.className = resp.ok ? 'status status-ok' : 'status status-fail';
+    } catch {
+      const el = document.getElementById(check.id);
+      if (el) el.className = 'status status-fail';
+    }
+  }
+}
+
+async function loadEnv() {
+  try {
+    const resp = await fetch('/env.json');
+    if (resp.ok) {
+      const env = await resp.json();
+      const el = document.getElementById('env-info');
+      el.textContent = `Server: ${env.MATRIX_SERVER_NAME || 'unknown'} | Host: ${env.EXTERNAL_HOSTNAME || 'unknown'}`;
+    }
+  } catch {}
+}
+
+checkHealth();
+loadEnv();
+setInterval(checkHealth, 30000);
+</script>
+</body>
+</html>
