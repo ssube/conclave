@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip software-properties-common && \
-    pip3 install ansible && \
+    pip3 install ansible passlib && \
     rm -rf /var/lib/apt/lists/*
 
 COPY ansible/ /tmp/ansible/
@@ -16,7 +16,7 @@ COPY skills/ /opt/conclave/skills-src/
 RUN cd /tmp/ansible && ansible-playbook -i inventory.yml playbook.yml
 
 # Clean up Ansible
-RUN pip3 uninstall -y ansible ansible-core && \
+RUN pip3 uninstall -y ansible ansible-core passlib && \
     rm -rf /tmp/ansible /root/.ansible && \
     apt-get purge -y software-properties-common && \
     apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
