@@ -85,7 +85,6 @@
 - name: Install Playwright and Chromium for CDP
   pip:
     name: playwright
-    extra_args: --break-system-packages
 
 - name: Install Playwright Chromium browser
   command: playwright install --with-deps chromium

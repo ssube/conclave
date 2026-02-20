@@ -18,7 +18,6 @@
       - playwright
       - chromadb-client
       - httpx
-    extra_args: --break-system-packages
 
 - name: Create pi assets directory
   file:

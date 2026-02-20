@@ -11,7 +11,6 @@
 - name: Install Synapse via pip
   pip:
     name: "matrix-synapse[postgres]"
-    extra_args: --break-system-packages
 
 - name: Copy Synapse override config
   copy:
