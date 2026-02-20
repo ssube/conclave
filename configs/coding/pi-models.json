@@ -1,14 +1,14 @@
 [
     {
-        "id": "llama3.1:8b",
-        "name": "Llama 3.1 8B (Local)",
+        "id": "qwen3-coder:30b-a3b-q8_0",
+        "name": "Qwen3 Coder 30B-A3B Q8 (Local)",
         "api": "openai-completions",
         "provider": "ollama",
         "baseUrl": "http://127.0.0.1:11434/v1",
         "reasoning": false,
         "input": ["text"],
         "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-        "contextWindow": 128000,
-        "maxTokens": 32000
+        "contextWindow": 32768,
+        "maxTokens": 16384
     }
 ]

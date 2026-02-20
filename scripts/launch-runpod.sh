@@ -4,7 +4,8 @@ set -euo pipefail
 # Launch a Conclave pod on Runpod via GraphQL API
 #
 # Usage: launch-runpod.sh [options]
-#   --gpu-type TYPE         GPU type (default: NVIDIA A100 80GB PCIe)
+#   --gpu GPU               GPU preset: a6000, a100-80, l6000 (default: a100-80)
+#   --gpu-type TYPE         Raw Runpod GPU type ID (overrides --gpu)
 #   --image IMAGE           Docker image (default: your-registry/conclave:latest)
 #   --volume-size GB        Volume size in GB (default: 500)
 #   --name NAME             Pod name (default: conclave)
@@ -12,7 +13,8 @@ set -euo pipefail
 
 : "${RUNPOD_API_KEY:?RUNPOD_API_KEY must be set}"
 
-GPU_TYPE="NVIDIA A100 80GB PCIe"
+GPU_PRESET="a100-80"
+GPU_TYPE=""
 IMAGE="your-registry/conclave:latest"
 VOLUME_SIZE=500
 POD_NAME="conclave"
@@ -20,6 +22,7 @@ ENV_VARS=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --gpu) GPU_PRESET="$2"; shift 2 ;;
         --gpu-type) GPU_TYPE="$2"; shift 2 ;;
         --image) IMAGE="$2"; shift 2 ;;
         --volume-size) VOLUME_SIZE="$2"; shift 2 ;;
@@ -28,6 +31,24 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
+
+# Resolve GPU preset to Runpod type ID if --gpu-type was not given
+if [ -z "$GPU_TYPE" ]; then
+    case "$GPU_PRESET" in
+        a6000)    GPU_TYPE="NVIDIA RTX A6000" ;;         # 48 GB
+        a100-80)  GPU_TYPE="NVIDIA A100 80GB PCIe" ;;    # 80 GB
+        l6000)    GPU_TYPE="NVIDIA RTX 6000 Ada Generation" ;; # 48 GB
+        6000-pro) GPU_TYPE="NVIDIA RTX 6000 Pro" ;;      # 96 GB
+        *)
+            echo "Unknown GPU preset: $GPU_PRESET"
+            echo "Available presets: a6000 (48GB), a100-80 (80GB), l6000 (48GB), 6000-pro (96GB)"
+            echo "Or use --gpu-type with a raw Runpod GPU type ID."
+            exit 1
+            ;;
+    esac
+fi
+
+echo "GPU: $GPU_TYPE"
 
 # Build env var JSON array
 ENV_JSON="["

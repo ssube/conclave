@@ -81,7 +81,7 @@ export NEKO_PASSWORD="${NEKO_PASSWORD:-neko}"
 export NEKO_ADMIN_PASSWORD="${NEKO_ADMIN_PASSWORD:-admin}"
 export PLANKA_ADMIN_EMAIL="${PLANKA_ADMIN_EMAIL:-admin@local}"
 export PLANKA_ADMIN_PASSWORD="${PLANKA_ADMIN_PASSWORD:-changeme}"
-export DEFAULT_OLLAMA_MODEL="${DEFAULT_OLLAMA_MODEL:-llama3.1:8b}"
+export DEFAULT_OLLAMA_MODEL="${DEFAULT_OLLAMA_MODEL:-qwen3-coder:30b-a3b-q8_0}"
 
 # Update dev user password if provided
 if [ -n "${CONCLAVE_DEV_PASSWORD:-}" ]; then

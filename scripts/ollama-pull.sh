@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-MODEL="${DEFAULT_OLLAMA_MODEL:-llama3.1:8b}"
+MODEL="${DEFAULT_OLLAMA_MODEL:-qwen3-coder:30b-a3b-q8_0}"
 
 echo "Waiting for Ollama API..."
 for i in $(seq 1 60); do
