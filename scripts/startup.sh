@@ -184,5 +184,10 @@ set +a
 # ---------------------------------------------------------------
 # 7. Launch supervisord as PID 1
 # ---------------------------------------------------------------
+if [ "${CONCLAVE_SETUP_ONLY:-}" = "1" ]; then
+    echo "=== Setup complete (CONCLAVE_SETUP_ONLY=1, skipping supervisord) ==="
+    exit 0
+fi
+
 echo "=== Starting supervisord ==="
 exec supervisord -n -c /etc/supervisor/conf.d/conclave.conf
