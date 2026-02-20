@@ -7,6 +7,10 @@
     state: present
     update_cache: true
 
+- name: Drop default PostgreSQL cluster created by apt
+  command: pg_dropcluster {{ conclave_postgres_version }} main --stop
+  ignore_errors: true
+
 - name: Ensure PostgreSQL unix socket directory
   file:
     path: /var/run/postgresql
