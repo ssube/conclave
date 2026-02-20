@@ -26,13 +26,6 @@
     state: absent
   when: not ollama_binary.stat.exists
 
-- name: Copy ollama-pull script
-  copy:
-    src: "{{ conclave_scripts_dir }}/ollama-pull.sh"
-    dest: "{{ conclave_scripts_dir }}/ollama-pull.sh"
-    mode: "0755"
-    remote_src: true
-
 - name: Verify Ollama is installed
   command: /usr/bin/ollama --version
   changed_when: false

@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY ansible/ /tmp/ansible/
 COPY configs/ /opt/conclave/configs/
-COPY scripts/ /opt/conclave/scripts/
 COPY dashboard/ /opt/dashboard/
 COPY skills/ /opt/conclave/skills-src/
 
@@ -21,6 +20,7 @@ RUN pip3 uninstall -y ansible ansible-core passlib && \
     apt-get purge -y software-properties-common && \
     apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
+COPY scripts/ /opt/conclave/scripts/
 RUN chmod +x /opt/conclave/scripts/*.sh
 
 EXPOSE 8888 22 8008 1337 8000 3100 11434 8080 7681
