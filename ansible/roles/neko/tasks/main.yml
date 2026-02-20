@@ -1,0 +1,47 @@
+---
+- name: Install N.eko display stack packages
+  apt:
+    name:
+      - xvfb
+      - pulseaudio
+      - openbox
+      - dbus-x11
+    state: present
+
+- name: Install GStreamer packages for N.eko
+  apt:
+    name:
+      - gstreamer1.0-plugins-base
+      - gstreamer1.0-plugins-good
+      - gstreamer1.0-plugins-bad
+      - gstreamer1.0-plugins-ugly
+      - gstreamer1.0-pulseaudio
+    state: present
+
+- name: Download N.eko binary
+  get_url:
+    url: "https://github.com/m1k1o/neko/releases/download/v{{ conclave_neko_version }}/neko-amd64"
+    dest: /usr/local/bin/neko
+    mode: "0755"
+
+- name: Install Playwright and Chromium for CDP
+  pip:
+    name: playwright
+    extra_args: --break-system-packages
+
+- name: Install Playwright Chromium browser
+  command: playwright install --with-deps chromium
+  environment:
+    PLAYWRIGHT_BROWSERS_PATH: /opt/pw-browsers
+
+- name: Find Playwright Chromium binary
+  shell: find /opt/pw-browsers -name chrome -path "*/chrome-linux64/*" | head -1
+  register: chromium_path
+  changed_when: false
+
+- name: Symlink Playwright Chromium
+  file:
+    src: "{{ chromium_path.stdout }}"
+    dest: /usr/local/bin/chromium-pw
+    state: link
+  when: chromium_path.stdout != ""

@@ -1,0 +1,69 @@
+---
+- name: Install coding agent npm packages
+  npm:
+    name: "{{ item }}"
+    global: true
+  loop:
+    - "@mariozechner/pi-coding-agent"
+    - "@anthropic-ai/claude-code"
+
+- name: Install tmux
+  apt:
+    name: tmux
+    state: present
+
+- name: Install Python dependencies for pi-skills
+  pip:
+    name:
+      - playwright
+      - chromadb-client
+      - httpx
+    extra_args: --break-system-packages
+
+- name: Create pi assets directory
+  file:
+    path: /opt/conclave/pi/{{ item }}
+    state: directory
+  loop:
+    - skills
+    - extensions
+    - prompts
+    - themes
+
+- name: Clone pi-skills repository
+  git:
+    repo: https://github.com/ssube/pi-skills.git
+    dest: /tmp/pi-skills
+    depth: 1
+
+- name: Copy pi-skills skills
+  command: rsync -a /tmp/pi-skills/skills/ /opt/conclave/pi/skills/
+  args:
+    creates: /opt/conclave/pi/skills
+
+- name: Copy pi-skills extensions
+  command: rsync -a /tmp/pi-skills/extensions/ /opt/conclave/pi/extensions/
+  args:
+    creates: /opt/conclave/pi/extensions
+
+- name: Copy project matrix skills (overrides pi-skills versions)
+  command: rsync -a /opt/conclave/skills-src/{{ item }}/ /opt/conclave/pi/skills/{{ item }}/
+  loop:
+    - matrix-send
+    - matrix-read
+  args:
+    removes: /opt/conclave/skills-src/{{ item }}
+
+- name: Clean up pi-skills clone
+  file:
+    path: /tmp/pi-skills
+    state: absent
+
+- name: Copy coding configs
+  copy:
+    src: "{{ conclave_configs_src }}/coding/{{ item }}"
+    dest: "{{ conclave_configs_src }}/coding/{{ item }}"
+    remote_src: true
+  loop:
+    - pi-models.json
+    - tmux.conf

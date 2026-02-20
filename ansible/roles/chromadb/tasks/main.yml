@@ -1,0 +1,5 @@
+---
+- name: Install ChromaDB via pip
+  pip:
+    name: chromadb
+    extra_args: --break-system-packages

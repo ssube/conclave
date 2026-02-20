@@ -1,0 +1,16 @@
+---
+- name: Install OpenSSH server
+  apt:
+    name: openssh-server
+    state: present
+
+- name: Disable password authentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication no"
+
+- name: Create sshd run directory
+  file:
+    path: /var/run/sshd
+    state: directory

@@ -1,0 +1,24 @@
+---
+- name: Install nginx and apache2-utils
+  apt:
+    name:
+      - nginx
+      - apache2-utils
+    state: present
+
+- name: Copy nginx config template
+  copy:
+    src: "{{ conclave_configs_src }}/nginx/nginx.conf.template"
+    dest: "{{ conclave_configs_src }}/nginx/nginx.conf.template"
+    remote_src: true
+
+- name: Copy dashboard files
+  copy:
+    src: /opt/dashboard/
+    dest: /opt/dashboard/
+    remote_src: true
+
+- name: Disable default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent

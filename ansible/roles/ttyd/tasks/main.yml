@@ -1,0 +1,6 @@
+---
+- name: Download ttyd binary
+  get_url:
+    url: "https://github.com/tsl0922/ttyd/releases/download/{{ conclave_ttyd_version }}/ttyd.x86_64"
+    dest: /usr/local/bin/ttyd
+    mode: "0755"

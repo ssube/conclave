@@ -1,0 +1,27 @@
+---
+- name: Install Synapse dependencies
+  apt:
+    name:
+      - python3-pip
+      - libpq-dev
+      - python3-dev
+      - build-essential
+    state: present
+
+- name: Install Synapse via pip
+  pip:
+    name: "matrix-synapse[postgres]"
+    extra_args: --break-system-packages
+
+- name: Copy Synapse override config
+  copy:
+    src: "{{ conclave_configs_src }}/synapse/homeserver.override.yaml"
+    dest: "{{ conclave_configs_src }}/synapse/homeserver.override.yaml"
+    remote_src: true
+
+- name: Copy init-synapse script
+  copy:
+    src: "{{ conclave_scripts_dir }}/init-synapse.sh"
+    dest: "{{ conclave_scripts_dir }}/init-synapse.sh"
+    mode: "0755"
+    remote_src: true

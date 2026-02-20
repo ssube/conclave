@@ -1,0 +1,19 @@
+---
+- name: Create Element Web directory
+  file:
+    path: /opt/element-web
+    state: directory
+
+- name: Download Element Web release
+  unarchive:
+    src: "https://github.com/element-hq/element-web/releases/download/v{{ conclave_element_web_version }}/element-v{{ conclave_element_web_version }}.tar.gz"
+    dest: /opt/element-web
+    remote_src: true
+    extra_opts:
+      - --strip-components=1
+
+- name: Copy Element Web config template
+  copy:
+    src: "{{ conclave_configs_src }}/element-web/config.json.template"
+    dest: "{{ conclave_configs_src }}/element-web/config.json.template"
+    remote_src: true

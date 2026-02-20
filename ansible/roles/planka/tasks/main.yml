@@ -1,0 +1,19 @@
+---
+- name: Create Planka directory
+  file:
+    path: /opt/planka
+    state: directory
+
+- name: Download Planka release
+  unarchive:
+    src: "https://github.com/plankanban/planka/releases/download/v{{ conclave_planka_version }}/planka-v{{ conclave_planka_version }}-prebuilt.tar.gz"
+    dest: /opt/planka
+    remote_src: true
+    extra_opts:
+      - --strip-components=1
+
+- name: Install Planka npm dependencies
+  command: npm install --production
+  args:
+    chdir: /opt/planka
+    creates: /opt/planka/node_modules
