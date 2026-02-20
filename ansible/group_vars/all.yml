@@ -1,0 +1,41 @@
+---
+# Service toggles
+conclave_postgres_enabled: true
+conclave_synapse_enabled: true
+conclave_element_web_enabled: true
+conclave_planka_enabled: true
+conclave_chromadb_enabled: true
+conclave_ollama_enabled: true
+conclave_neko_enabled: true
+conclave_coding_agents_enabled: true
+conclave_ttyd_enabled: true
+conclave_nginx_enabled: true
+conclave_ssh_enabled: true
+
+# Paths
+conclave_workspace: /workspace
+conclave_install_prefix: /opt
+conclave_configs_src: /opt/conclave/configs
+conclave_scripts_dir: /opt/conclave/scripts
+
+# Versions
+conclave_postgres_version: "16"
+conclave_node_version: "20"
+conclave_element_web_version: "1.11.96"
+conclave_planka_version: "2.4.1"
+conclave_neko_version: "2.8.0"
+conclave_ttyd_version: "1.7.7"
+
+# Ports
+conclave_nginx_port: 8888
+conclave_postgres_port: 5432
+conclave_synapse_port: 8008
+conclave_planka_port: 1337
+conclave_chromadb_port: 8000
+conclave_chromadb_admin_port: 3100
+conclave_ollama_port: 11434
+conclave_neko_port: 8080
+conclave_ttyd_port: 7681
+conclave_ssh_port: 22
+conclave_neko_webrtc_range: "52000-52100"
+conclave_chromium_cdp_port: 9222

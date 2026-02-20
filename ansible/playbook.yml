@@ -1,0 +1,39 @@
+---
+- name: Conclave - Self-hosted AI workspace
+  hosts: localhost
+  become: true
+  roles:
+    - role: base
+
+    - role: postgres
+      when: conclave_postgres_enabled | default(true)
+
+    - role: synapse
+      when: conclave_synapse_enabled | default(true)
+
+    - role: element_web
+      when: conclave_element_web_enabled | default(true)
+
+    - role: planka
+      when: conclave_planka_enabled | default(true)
+
+    - role: chromadb
+      when: conclave_chromadb_enabled | default(true)
+
+    - role: ollama
+      when: conclave_ollama_enabled | default(true)
+
+    - role: neko
+      when: conclave_neko_enabled | default(true)
+
+    - role: coding_agents
+      when: conclave_coding_agents_enabled | default(true)
+
+    - role: ttyd
+      when: conclave_ttyd_enabled | default(true)
+
+    - role: nginx
+      when: conclave_nginx_enabled | default(true)
+
+    - role: ssh
+      when: conclave_ssh_enabled | default(true)

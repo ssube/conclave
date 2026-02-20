@@ -1,0 +1,1022 @@
+# Conclave — Implementation Specification
+
+**Project:** Conclave
+**Tagline:** A self-hosted AI workspace in a single container
+**Version:** 1.1 — Draft
+**Date:** 2026-02-20
+
+---
+
+## 1. Overview
+
+### 1.1 What Is Conclave?
+
+A **conclave** is a private gathering — a closed meeting of chosen participants who come together for a shared purpose. In its original sense, it describes a room that can be locked from the inside: a space that is sealed, self-contained, and deliberately composed.
+
+Conclave is exactly that: a private, self-contained workspace where you and your AI agents convene. It is a single Docker container that houses everything needed for an AI-augmented development environment — chat, project management, coding agents, LLM inference, a knowledge base, and a browsable internet session — all deployed as one unit onto a GPU pod. Your human collaborators join via Matrix. Your AI agents work alongside you through pi and Claude Code. Your tools are organized behind a single entry point. The conclave is in session.
+
+### 1.2 Why Conclave Exists
+
+GPU pod platforms like Runpod provide powerful hardware but impose a constraint: no nested Docker. You get one container. Conclave makes that one container count by running all services as supervised native processes with a shared persistent volume, using multi-stage Docker builds to extract binaries from upstream images rather than replaying their Dockerfiles.
+
+### 1.3 Services at a Glance
+
+| Service | Role |
+|---|---|
+| Matrix Synapse + Element Web | Chat homeserver and web client |
+| Planka | Kanban-style project management |
+| PostgreSQL 16 | Shared relational database (Synapse + Planka) |
+| ChromaDB + Admin UI | Vector database and editor for RAG workloads |
+| Ollama | LLM inference server (OpenAI-compatible API) |
+| N.eko | Interactive WebRTC browser session with CDP access |
+| pi + Claude Code | AI coding agents in a persistent tmux workspace |
+| ttyd | Web-based terminal access to the workspace |
+| nginx | Unified reverse proxy with basic auth |
+
+### 1.4 Design Principles
+
+- **Single container, no nested Docker.** All services run as native processes managed by supervisord.
+- **Persistent volume at `/workspace`.** All application state, databases, models, and configuration survive pod restarts.
+- **Multi-stage Docker build.** Copy binaries and assets from upstream images rather than replaying their Dockerfiles.
+- **First boot vs. subsequent boot.** A startup script initializes data directories and config files on first run, then starts services on all subsequent runs.
+- **Env vars override config defaults.** Secrets are passed as environment variables at pod start; the startup script writes them into persistent config files.
+
+---
+
+## 2. Target Environment
+
+| Parameter | Value |
+|---|---|
+| Platform | Runpod GPU Pod |
+| GPU | A100 80GB or H100 80GB |
+| Base image | `nvidia/cuda:12.4.1-runtime-ubuntu22.04` |
+| Persistent volume | 500GB–1TB mounted at `/workspace` |
+| Process manager | supervisord |
+| Reverse proxy | nginx (inside the container) |
+
+---
+
+## 3. Service Inventory
+
+### 3.1 Matrix Synapse (Homeserver)
+
+Synapse is the reference Matrix homeserver — the most mature and well-documented implementation with the broadest ecosystem support for bridges, bots, and appservices. It requires PostgreSQL, which Conclave already runs for Planka, so there is no additional infrastructure overhead.
+
+| Property | Value |
+|---|---|
+| Source image | `matrixdotorg/synapse:latest` |
+| Internal port | 8008 |
+| Data directory | `/workspace/data/synapse/` |
+| Database | PostgreSQL 16 (shared instance, `synapse` database) |
+| Config file | `/workspace/config/synapse/homeserver.yaml` |
+| Nginx path | `/_matrix/` → `http://127.0.0.1:8008` |
+| Direct port | 8008 |
+
+**Key configuration:**
+
+```yaml
+server_name: "${MATRIX_SERVER_NAME}"
+public_baseurl: "https://${EXTERNAL_HOSTNAME}/"
+database:
+  name: psycopg2
+  args:
+    host: /var/run/postgresql
+    database: synapse
+    user: synapse
+    cp_min: 5
+    cp_max: 10
+media_store_path: "/workspace/data/synapse/media_store"
+enable_registration: false
+listeners:
+  - port: 8008
+    type: http
+    resources:
+      - names: [client, federation]
+```
+
+**First-boot initialization:**
+
+```bash
+python -m synapse.app.homeserver \
+    --server-name="${MATRIX_SERVER_NAME}" \
+    --config-path=/workspace/config/synapse/homeserver.yaml \
+    --generate-config \
+    --report-stats=no
+# Then patch the generated config with Conclave-specific overrides
+```
+
+### 3.2 Element Web (Matrix Client)
+
+A static web build of the Element Matrix client, served by nginx directly. No runtime process required.
+
+| Property | Value |
+|---|---|
+| Source image | `vectorim/element-web:latest` |
+| Asset path | `/opt/element-web/` |
+| Internal port | None (static files via nginx) |
+| Config | `/workspace/config/element-web/config.json` |
+| Nginx path | `/element/` → static files |
+
+**Configuration (`config.json`):**
+
+```json
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "https://${EXTERNAL_HOSTNAME}",
+            "server_name": "${MATRIX_SERVER_NAME}"
+        }
+    },
+    "brand": "Element",
+    "disable_guests": true
+}
+```
+
+### 3.3 PostgreSQL 16
+
+Shared relational database. Synapse and Planka each get their own database and user for isolation. Available for any future service that needs SQL.
+
+| Property | Value |
+|---|---|
+| Installation | `apt` (PostgreSQL APT repository) |
+| Internal port | 5432 (localhost + unix socket) |
+| Data directory | `/workspace/data/postgres/` |
+| Unix socket | `/var/run/postgresql/` |
+| Databases | `synapse`, `planka` |
+| Direct port | Not exposed externally |
+
+**First-boot initialization:**
+
+```bash
+pg_createcluster 16 main --datadir=/workspace/data/postgres
+pg_ctlcluster 16 main start
+
+sudo -u postgres createuser synapse
+sudo -u postgres createdb --owner=synapse --encoding=UTF8 --locale=C synapse
+sudo -u postgres createuser planka
+sudo -u postgres createdb --owner=planka planka
+
+sudo -u postgres psql -c "ALTER USER synapse PASSWORD '${SYNAPSE_DB_PASSWORD}';"
+sudo -u postgres psql -c "ALTER USER planka PASSWORD '${PLANKA_DB_PASSWORD}';"
+```
+
+### 3.4 Planka (Kanban Board)
+
+Planka is a Trello-like kanban board built with React and Sails.js. Requires PostgreSQL.
+
+| Property | Value |
+|---|---|
+| Source image | `ghcr.io/plankanban/planka:latest` |
+| Runtime | Node.js (Sails.js) |
+| Internal port | 1337 |
+| Data directory | `/workspace/data/planka/` |
+| Database | PostgreSQL 16 (shared instance, `planka` database) |
+| Nginx path | `/planka/` → `http://127.0.0.1:1337` |
+| Direct port | 1337 |
+
+**Environment:**
+
+```bash
+BASE_URL=https://${EXTERNAL_HOSTNAME}/planka
+DATABASE_URL=postgresql://planka:${PLANKA_DB_PASSWORD}@127.0.0.1:5432/planka
+SECRET_KEY=${PLANKA_SECRET_KEY}
+DEFAULT_ADMIN_EMAIL=${PLANKA_ADMIN_EMAIL}
+DEFAULT_ADMIN_PASSWORD=${PLANKA_ADMIN_PASSWORD}
+DEFAULT_ADMIN_NAME=Admin
+DEFAULT_ADMIN_USERNAME=admin
+TRUST_PROXY=true
+```
+
+### 3.5 ChromaDB (Vector Database)
+
+ChromaDB stores embeddings from Matrix conversations, documents, and code for RAG workloads. Uses embedded SQLite + hnswlib — no external database needed.
+
+| Property | Value |
+|---|---|
+| Source image | `chromadb/chroma:latest` |
+| Internal port | 8000 |
+| Data directory | `/workspace/data/chromadb/` |
+| Database | SQLite + hnswlib (embedded) |
+| Auth | Token-based |
+| Nginx path | `/chromadb/` → `http://127.0.0.1:8000` |
+| Direct port | 8000 |
+
+**Environment:**
+
+```bash
+IS_PERSISTENT=TRUE
+PERSIST_DIRECTORY=/workspace/data/chromadb
+ANONYMIZED_TELEMETRY=FALSE
+CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMADB_TOKEN}
+CHROMA_SERVER_AUTHN_PROVIDER=chromadb.auth.token_authn.TokenAuthenticationServerProvider
+```
+
+### 3.6 ChromaDB Admin UI
+
+An existing open-source GUI for browsing and editing ChromaDB collections.
+
+| Property | Value |
+|---|---|
+| Package | TBD — evaluate at build time |
+| Internal port | 3100 |
+| Nginx path | `/chromadb-admin/` → `http://127.0.0.1:3100` |
+| Direct port | 3100 |
+| Auth | nginx basic auth |
+
+*Fallback: ChromaDB's built-in Swagger/OpenAPI explorer or the `chroma` CLI.*
+
+### 3.7 Ollama (LLM Inference Server)
+
+Ollama provides an OpenAI-compatible API for LLM inference on the GPU.
+
+| Property | Value |
+|---|---|
+| Source image | `ollama/ollama:latest` |
+| Binary path | `/usr/local/bin/ollama` |
+| Internal port | 11434 |
+| Model cache | `/workspace/data/ollama/models/` |
+| Nginx path | `/ollama/` → `http://127.0.0.1:11434` |
+| Direct port | 11434 |
+
+**Environment:**
+
+```bash
+OLLAMA_HOST=0.0.0.0:11434
+OLLAMA_MODELS=/workspace/data/ollama/models
+OLLAMA_KEEP_ALIVE=24h
+```
+
+**Model pre-pull (background oneshot task):**
+
+```bash
+#!/bin/bash
+# ollama-pull.sh
+set -e
+MODEL="${DEFAULT_OLLAMA_MODEL:-llama3.1:8b}"
+
+for i in $(seq 1 60); do
+    curl -sf http://127.0.0.1:11434/api/tags > /dev/null && break
+    sleep 2
+done
+
+if ! ollama list | grep -q "$MODEL"; then
+    echo "Pulling $MODEL..."
+    ollama pull "$MODEL"
+else
+    echo "$MODEL already cached."
+fi
+```
+
+### 3.8 N.eko (Interactive Browser)
+
+N.eko provides a WebRTC-streamed browser session accessible via web UI, with support for programmatic control via Playwright/CDP for AI agent automation.
+
+| Property | Value |
+|---|---|
+| Source image | `m1k1o/neko:firefox` (reference for extraction) |
+| Internal port | 8080 (HTTP/WebSocket) |
+| WebRTC ports | 52000–52100 (UDP) |
+| Data directory | `/workspace/data/neko/` |
+| Nginx path | `/neko/` → `http://127.0.0.1:8080` |
+| Direct port | 8080 |
+
+**Environment:**
+
+```bash
+NEKO_SCREEN=1920x1080@30
+NEKO_PASSWORD=${NEKO_PASSWORD}
+NEKO_PASSWORD_ADMIN=${NEKO_ADMIN_PASSWORD}
+NEKO_BIND=0.0.0.0:8080
+NEKO_EPR=52000-52100
+NEKO_ICELITE=true
+```
+
+**Integration complexity:** N.eko normally runs as its own container with Xvfb, PulseAudio, and a window manager. Running it natively inside Conclave requires extracting and running these components as separate supervised processes:
+
+1. **Xvfb** — virtual framebuffer on DISPLAY `:99`
+2. **PulseAudio** — audio server in daemonless mode
+3. **openbox** — lightweight window manager
+4. **Firefox/Chromium** — managed by the neko server binary
+5. **neko serve** — the WebRTC streaming server
+
+An existing example for running N.eko components natively in a single container is available and will be used as a reference during implementation. If native integration proves intractable, Podman can run N.eko as a nested container (see Section 11).
+
+**Programmatic access:** Playwright will be installed alongside the browser for CDP-based automation, enabling AI agents (pi, Claude Code) to drive the browser programmatically.
+
+### 3.9 Coding Agents: pi + Claude Code
+
+The developer workspace runs two complementary AI coding agents in a persistent tmux session, accessible via both a web terminal (ttyd) and SSH.
+
+**pi** is the primary coding agent — a minimal, extensible terminal coding harness from the pi-mono toolkit. It supports skills, prompt templates, extensions, and multi-provider LLM access (Anthropic, OpenAI, Google, Ollama, and others). It can use the local Ollama instance for inference or external APIs.
+
+**Claude Code** is Anthropic's official coding agent. It and pi cooperate well in the same workspace, and both can be used depending on the task.
+
+| Property | Value |
+|---|---|
+| pi package | `@mariozechner/pi-coding-agent` (npm) |
+| Claude Code package | `@anthropic-ai/claude-code` (npm) |
+| Terminal server | ttyd (web-based terminal over WebSocket) |
+| Session manager | tmux |
+| Internal port | 7681 (ttyd web UI) |
+| SSH port | 22 |
+| Data directory | `/workspace/data/coding/` |
+| Nginx path | `/terminal/` → `http://127.0.0.1:7681` |
+| Direct port | 7681 (ttyd), 22 (SSH) |
+
+**Persistent configuration on the volume:**
+
+```
+/workspace/data/coding/
+├── .pi/                        # pi global config
+│   └── agent/
+│       ├── SYSTEM.md           # Custom system prompt
+│       ├── AGENTS.md           # Global agent instructions
+│       ├── skills/             # Installed skills
+│       ├── prompts/            # Prompt templates
+│       ├── extensions/         # pi extensions
+│       ├── themes/             # TUI themes
+│       └── models.json         # Custom model definitions (e.g., local Ollama)
+├── .claude/                    # Claude Code config
+│   ├── settings.json
+│   └── skills/                 # Claude Code skills
+├── .tmux.conf                  # tmux configuration
+└── projects/                   # Working directory for code projects
+```
+
+**pi local Ollama integration (`models.json`):**
+
+```json
+[
+    {
+        "id": "llama3.1:8b",
+        "name": "Llama 3.1 8B (Local)",
+        "api": "openai-completions",
+        "provider": "ollama",
+        "baseUrl": "http://127.0.0.1:11434/v1",
+        "reasoning": false,
+        "input": ["text"],
+        "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+        "contextWindow": 128000,
+        "maxTokens": 32000
+    }
+]
+```
+
+**ttyd configuration:**
+
+```bash
+ttyd \
+    --port 7681 \
+    --writable \
+    --credential "${TTYD_USER}:${TTYD_PASSWORD}" \
+    tmux new-session -A -s workspace
+```
+
+**SSH setup:** OpenSSH server with key-based auth only. Authorized keys stored at `/workspace/config/ssh/authorized_keys`.
+
+---
+
+## 4. Directory Layout
+
+All persistent state lives under `/workspace`. The container filesystem is ephemeral.
+
+```
+/workspace/
+├── config/                       # Configuration files (generated on first boot)
+│   ├── nginx/
+│   │   ├── nginx.conf
+│   │   ├── htpasswd
+│   │   └── conf.d/
+│   │       └── services.conf
+│   ├── synapse/
+│   │   └── homeserver.yaml
+│   ├── element-web/
+│   │   └── config.json
+│   ├── planka/
+│   │   └── .env
+│   ├── chromadb/
+│   │   └── .env
+│   ├── neko/
+│   │   └── .env
+│   ├── ssh/
+│   │   └── authorized_keys
+│   └── generated-secrets.env     # Auto-generated secrets (first boot)
+│
+├── data/                         # Application runtime data
+│   ├── synapse/                  # Synapse media, signing keys
+│   ├── postgres/                 # PostgreSQL data directory
+│   ├── planka/                   # Attachments, avatars, images
+│   ├── chromadb/                 # Vector DB persistence
+│   ├── ollama/
+│   │   └── models/               # Cached model weights
+│   ├── neko/                     # Browser profiles, downloads
+│   └── coding/                   # pi + Claude Code config, skills, projects
+│       ├── .pi/
+│       ├── .claude/
+│       └── projects/
+│
+└── logs/                         # Centralized logs
+    ├── nginx/
+    ├── synapse/
+    ├── postgres/
+    ├── planka/
+    ├── chromadb/
+    ├── ollama/
+    ├── neko/
+    └── ttyd/
+```
+
+---
+
+## 5. Nginx Reverse Proxy
+
+Nginx listens on port **8888** (the primary unified entry point) and routes requests by path prefix. Each service also exposes its own direct port as a fallback.
+
+### 5.1 Path Routing Map
+
+| Path | Backend | WebSocket | Auth |
+|---|---|---|---|
+| `/_matrix/` | `127.0.0.1:8008` | Yes (sync) | Synapse built-in |
+| `/_synapse/` | `127.0.0.1:8008` | No | Synapse built-in |
+| `/element/` | Static files | No | None (Matrix login) |
+| `/planka/` | `127.0.0.1:1337` | Yes (real-time) | Planka built-in |
+| `/chromadb/` | `127.0.0.1:8000` | No | Token auth |
+| `/chromadb-admin/` | `127.0.0.1:3100` | No | nginx basic auth |
+| `/ollama/` | `127.0.0.1:11434` | No | nginx basic auth |
+| `/neko/` | `127.0.0.1:8080` | Yes (WebRTC signaling) | N.eko built-in |
+| `/terminal/` | `127.0.0.1:7681` | Yes (ttyd) | ttyd basic auth |
+| `/` | Dashboard (static HTML) | No | nginx basic auth |
+
+### 5.2 Core Nginx Config
+
+```nginx
+worker_processes auto;
+error_log /workspace/logs/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    sendfile      on;
+    keepalive_timeout 65;
+
+    access_log /workspace/logs/nginx/access.log;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    server {
+        listen 8888;
+        server_name _;
+
+        # --- Dashboard ---
+        location = / {
+            auth_basic "Conclave";
+            auth_basic_user_file /workspace/config/nginx/htpasswd;
+            root /opt/dashboard;
+            index index.html;
+        }
+
+        # --- Matrix Synapse ---
+        location /_matrix/ {
+            proxy_pass http://127.0.0.1:8008;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 600s;
+            client_max_body_size 100M;
+        }
+        location /_synapse/ {
+            proxy_pass http://127.0.0.1:8008;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # --- Matrix well-known ---
+        location /.well-known/matrix/server {
+            return 200 '{"m.server": "$host:443"}';
+            add_header Content-Type application/json;
+        }
+        location /.well-known/matrix/client {
+            return 200 '{"m.homeserver": {"base_url": "https://$host"}}';
+            add_header Content-Type application/json;
+            add_header Access-Control-Allow-Origin *;
+        }
+
+        # --- Element Web ---
+        location /element/ {
+            alias /opt/element-web/;
+            try_files $uri $uri/ /element/index.html;
+        }
+
+        # --- Planka ---
+        location /planka/ {
+            proxy_pass http://127.0.0.1:1337/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # --- ChromaDB API ---
+        location /chromadb/ {
+            proxy_pass http://127.0.0.1:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        # --- ChromaDB Admin ---
+        location /chromadb-admin/ {
+            auth_basic "ChromaDB Admin";
+            auth_basic_user_file /workspace/config/nginx/htpasswd;
+            proxy_pass http://127.0.0.1:3100/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        # --- Ollama ---
+        location /ollama/ {
+            auth_basic "Ollama API";
+            auth_basic_user_file /workspace/config/nginx/htpasswd;
+            proxy_pass http://127.0.0.1:11434/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_read_timeout 600s;
+        }
+
+        # --- N.eko ---
+        location /neko/ {
+            proxy_pass http://127.0.0.1:8080/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        # --- ttyd Terminal ---
+        location /terminal/ {
+            proxy_pass http://127.0.0.1:7681/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+    }
+}
+```
+
+### 5.3 Port Summary
+
+| Port | Service | Exposure |
+|---|---|---|
+| 8888 | nginx (unified entry) | Primary — expose via Runpod |
+| 22 | SSH | Expose via Runpod |
+| 8008 | Synapse | Fallback direct access |
+| 1337 | Planka | Fallback direct access |
+| 5432 | PostgreSQL | Internal only |
+| 8000 | ChromaDB | Fallback direct access |
+| 3100 | ChromaDB Admin | Fallback direct access |
+| 11434 | Ollama | Fallback direct access |
+| 8080 | N.eko | Fallback direct access |
+| 7681 | ttyd | Fallback direct access |
+| 52000–52100/udp | N.eko WebRTC | Expose via Runpod |
+
+---
+
+## 6. Dockerfile Strategy
+
+Multi-stage builds extract binaries and assets from upstream images, then assemble everything into a single runtime image.
+
+### 6.1 Multi-Stage Build Outline
+
+```dockerfile
+# ============================================================
+# Stage 1: Collect binaries from upstream images
+# ============================================================
+FROM matrixdotorg/synapse:latest AS synapse
+FROM vectorim/element-web:latest AS element-web
+FROM ghcr.io/plankanban/planka:latest AS planka
+FROM chromadb/chroma:latest AS chromadb
+FROM ollama/ollama:latest AS ollama
+FROM m1k1o/neko:firefox AS neko
+
+# ============================================================
+# Stage 2: Runtime image
+# ============================================================
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+# --- System packages ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Core infrastructure
+    supervisor nginx openssh-server tmux curl wget git htop vim jq ca-certificates \
+    # PostgreSQL 16
+    postgresql-16 postgresql-client-16 \
+    # Python (Synapse + ChromaDB)
+    python3 python3-pip python3-venv \
+    # Node.js 20+ (Planka + coding agents)
+    nodejs npm \
+    # N.eko dependencies
+    xvfb pulseaudio openbox firefox dbus-x11 \
+    # ttyd
+    ttyd \
+    # Basic auth generation
+    apache2-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Copy service binaries/assets ---
+COPY --from=synapse /opt/synapse /opt/synapse
+COPY --from=element-web /app /opt/element-web
+COPY --from=planka /app /opt/planka
+COPY --from=chromadb /chroma /opt/chromadb
+COPY --from=ollama /bin/ollama /usr/local/bin/ollama
+COPY --from=neko /usr/bin/neko /usr/local/bin/neko
+
+# --- Install Synapse (Python) ---
+RUN pip3 install matrix-synapse[postgres] --break-system-packages
+
+# --- Install ChromaDB (Python) ---
+RUN pip3 install chromadb --break-system-packages
+
+# --- Install coding agents ---
+RUN npm install -g @mariozechner/pi-coding-agent @anthropic-ai/claude-code
+
+# --- Copy Conclave configs, scripts, dashboard ---
+COPY scripts/ /opt/conclave/scripts/
+COPY configs/ /opt/conclave/configs/
+COPY dashboard/ /opt/dashboard/
+COPY supervisord.conf /etc/supervisor/conf.d/conclave.conf
+
+# --- SSH setup ---
+RUN mkdir -p /var/run/sshd && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+EXPOSE 8888 22 8008 1337 8000 3100 11434 8080 7681
+EXPOSE 52000-52100/udp
+
+ENTRYPOINT ["/opt/conclave/scripts/startup.sh"]
+```
+
+**Build-time notes:**
+
+- The exact `COPY --from` paths require validation against each upstream image's filesystem layout. Some images install to `/app`, others to `/usr/local/bin`.
+- Node.js version must be ≥18 for Planka compatibility.
+- N.eko binary extraction is the highest-risk step — may require copying additional shared libraries. The existing N.eko-in-single-container example will guide this.
+- Synapse can be installed via pip rather than copying from the image, which may be more reliable.
+- Pin all source images to specific version tags in production, not `latest`.
+
+### 6.2 Approximate Image Size
+
+| Component | Estimated Size |
+|---|---|
+| CUDA runtime base | ~3.5 GB |
+| System packages | ~800 MB |
+| Synapse (Python + deps) | ~400 MB |
+| Element Web assets | ~50 MB |
+| Planka (Node.js app) | ~300 MB |
+| ChromaDB (Python) | ~500 MB |
+| Ollama binary | ~200 MB |
+| N.eko + browser deps | ~1.5 GB |
+| pi + Claude Code (npm) | ~200 MB |
+| **Total estimate** | **~7.5 GB** |
+
+---
+
+## 7. Startup Script (`startup.sh`)
+
+The entrypoint handles first-boot initialization, config generation, and supervisor launch.
+
+### 7.1 Flow
+
+```
+startup.sh
+│
+├── 1. Detect first boot (check /workspace/.initialized)
+├── 2. Create directory structure under /workspace/{config,data,logs}/
+├── 3. Generate secrets for any not provided via env vars
+│      └── Write to /workspace/config/generated-secrets.env
+├── 4. Generate configs from env vars + templates
+│      ├── synapse/homeserver.yaml
+│      ├── element-web/config.json
+│      ├── planka/.env
+│      ├── nginx/nginx.conf + htpasswd
+│      ├── chromadb/.env
+│      ├── neko/.env
+│      └── coding agent configs (.pi/, .claude/)
+├── 5. Initialize PostgreSQL (first boot only)
+│      ├── pg_createcluster
+│      ├── Create synapse + planka databases and users
+│      └── Run Synapse DB migrations
+├── 6. Set up SSH authorized_keys
+├── 7. Symlink configs to expected paths
+├── 8. Touch /workspace/.initialized
+└── 9. exec supervisord -n (foreground, takes over PID 1)
+```
+
+### 7.2 Required Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `MATRIX_SERVER_NAME` | Yes | — | Matrix server domain name |
+| `EXTERNAL_HOSTNAME` | Yes | — | Pod's external hostname (Runpod proxy URL) |
+| `NGINX_USER` | No | `admin` | nginx basic auth username |
+| `NGINX_PASSWORD` | Yes | — | nginx basic auth password |
+| `SYNAPSE_DB_PASSWORD` | No | (generated) | PostgreSQL password for Synapse |
+| `PLANKA_DB_PASSWORD` | No | (generated) | PostgreSQL password for Planka |
+| `PLANKA_SECRET_KEY` | No | (generated) | Planka session secret |
+| `PLANKA_ADMIN_EMAIL` | No | `admin@local` | Planka default admin email |
+| `PLANKA_ADMIN_PASSWORD` | No | `changeme` | Planka default admin password |
+| `CHROMADB_TOKEN` | No | (generated) | ChromaDB API auth token |
+| `NEKO_PASSWORD` | No | `neko` | N.eko viewer password |
+| `NEKO_ADMIN_PASSWORD` | No | `admin` | N.eko admin password |
+| `TTYD_USER` | No | `admin` | Web terminal username |
+| `TTYD_PASSWORD` | Yes | — | Web terminal password |
+| `ANTHROPIC_API_KEY` | No | — | API key for Claude Code and pi (Anthropic provider) |
+| `OPENAI_API_KEY` | No | — | API key for pi (OpenAI provider) |
+| `DEFAULT_OLLAMA_MODEL` | No | `llama3.1:8b` | Model to pre-pull on first boot |
+| `SSH_AUTHORIZED_KEYS` | No | — | Public keys (newline-separated) |
+
+Secrets not provided via env vars are auto-generated on first boot and written to `/workspace/config/generated-secrets.env` for reference.
+
+---
+
+## 8. Supervisord Configuration
+
+```ini
+[supervisord]
+nodaemon=true
+logfile=/workspace/logs/supervisord.log
+pidfile=/var/run/supervisord.pid
+
+[unix_http_server]
+file=/var/run/supervisor.sock
+
+[rpcinterface:supervisor]
+supervisor.rpc_interface_factory = supervisor.rpc.interface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix:///var/run/supervisor.sock
+
+# ===========================================================
+# Core Infrastructure (priority 10-20)
+# ===========================================================
+
+[program:nginx]
+command=nginx -g "daemon off;" -c /workspace/config/nginx/nginx.conf
+autostart=true
+autorestart=true
+priority=10
+stdout_logfile=/workspace/logs/nginx/stdout.log
+stderr_logfile=/workspace/logs/nginx/stderr.log
+
+[program:postgres]
+command=/usr/lib/postgresql/16/bin/postgres -D /workspace/data/postgres
+user=postgres
+autostart=true
+autorestart=true
+priority=10
+stdout_logfile=/workspace/logs/postgres/stdout.log
+stderr_logfile=/workspace/logs/postgres/stderr.log
+
+[program:sshd]
+command=/usr/sbin/sshd -D
+autostart=true
+autorestart=true
+priority=10
+
+# ===========================================================
+# N.eko Display Stack (priority 15-16)
+# ===========================================================
+
+[program:xvfb]
+command=Xvfb :99 -screen 0 1920x1080x24
+autostart=true
+autorestart=true
+priority=15
+
+[program:pulseaudio]
+command=pulseaudio --daemonize=no --exit-idle-time=-1
+autostart=true
+autorestart=true
+priority=15
+
+[program:openbox]
+command=openbox
+environment=DISPLAY=":99"
+autostart=true
+autorestart=true
+priority=16
+
+# ===========================================================
+# Application Services (priority 30-50)
+# ===========================================================
+
+[program:synapse]
+command=python3 -m synapse.app.homeserver --config-path=/workspace/config/synapse/homeserver.yaml
+autostart=true
+autorestart=true
+priority=30
+stdout_logfile=/workspace/logs/synapse/stdout.log
+stderr_logfile=/workspace/logs/synapse/stderr.log
+
+[program:planka]
+command=node /opt/planka/server/app.js
+directory=/opt/planka
+environment=NODE_ENV="production",PORT="1337"
+autostart=true
+autorestart=true
+priority=40
+stdout_logfile=/workspace/logs/planka/stdout.log
+stderr_logfile=/workspace/logs/planka/stderr.log
+
+[program:chromadb]
+command=chroma run --host 0.0.0.0 --port 8000 --path /workspace/data/chromadb
+autostart=true
+autorestart=true
+priority=30
+stdout_logfile=/workspace/logs/chromadb/stdout.log
+stderr_logfile=/workspace/logs/chromadb/stderr.log
+
+[program:ollama]
+command=/usr/local/bin/ollama serve
+environment=OLLAMA_HOST="0.0.0.0:11434",OLLAMA_MODELS="/workspace/data/ollama/models",OLLAMA_KEEP_ALIVE="24h"
+autostart=true
+autorestart=true
+priority=30
+stdout_logfile=/workspace/logs/ollama/stdout.log
+stderr_logfile=/workspace/logs/ollama/stderr.log
+
+[program:neko]
+command=/usr/local/bin/neko serve
+environment=DISPLAY=":99",NEKO_BIND="0.0.0.0:8080",NEKO_SCREEN="1920x1080@30",NEKO_EPR="52000-52100",NEKO_ICELITE="true"
+autostart=true
+autorestart=true
+priority=50
+stdout_logfile=/workspace/logs/neko/stdout.log
+stderr_logfile=/workspace/logs/neko/stderr.log
+
+[program:ttyd]
+command=ttyd --port 7681 --writable --credential %(ENV_TTYD_USER)s:%(ENV_TTYD_PASSWORD)s tmux new-session -A -s workspace
+directory=/workspace/data/coding/projects
+environment=HOME="/workspace/data/coding"
+autostart=true
+autorestart=true
+priority=30
+stdout_logfile=/workspace/logs/ttyd/stdout.log
+stderr_logfile=/workspace/logs/ttyd/stderr.log
+
+# ===========================================================
+# Post-Start Tasks (priority 99, oneshot)
+# ===========================================================
+
+[program:ollama-pull]
+command=/opt/conclave/scripts/ollama-pull.sh
+autostart=true
+autorestart=false
+startsecs=0
+exitcodes=0
+priority=99
+stdout_logfile=/workspace/logs/ollama/pull.log
+stderr_logfile=/workspace/logs/ollama/pull-error.log
+```
+
+---
+
+## 9. Authentication Summary
+
+| Service | Built-in Auth | nginx Basic Auth | Notes |
+|---|---|---|---|
+| Synapse | Matrix user auth | No | Registration disabled by default |
+| Element Web | Matrix login | No | Delegates to Synapse |
+| Planka | Username/password | No | Has own user management |
+| ChromaDB API | Token auth | No | Token in request header |
+| ChromaDB Admin | No | **Yes** | Unprotected service |
+| Ollama | No | **Yes** | Unprotected API |
+| N.eko | Password-based | No | Viewer + admin passwords |
+| ttyd | Basic auth (built-in) | No | Via ttyd `-c` flag |
+| SSH | Key-based | N/A | No password auth allowed |
+| Dashboard | No | **Yes** | Static page |
+
+All nginx basic auth shares `/workspace/config/nginx/htpasswd`.
+
+---
+
+## 10. Dashboard
+
+A simple static HTML page served at `/` providing links to all services and live status indicators.
+
+Features:
+- Service links with descriptions
+- JavaScript-based health checks (fetch to each endpoint, green/red indicators)
+- Port reference table
+- Quick-start guide for first-time setup
+
+Built into the image at `/opt/dashboard/`. No persistence required.
+
+---
+
+## 11. Known Risks and Mitigations
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| N.eko native integration | High | Most complex service to extract from Docker. An existing reference example will be followed. **Fallback:** install Podman in the container and run N.eko as a nested container. |
+| Planka path-prefix support | Medium | Planka may not natively support `/planka/` subpath. Test with `BASE_URL` set to the full prefixed URL. **Fallback:** direct port access only. |
+| Memory pressure | Medium | System RAM on A100/H100 pods is typically 128–256GB — ample for all services. Ollama with a loaded model is the heaviest consumer. Set `OLLAMA_KEEP_ALIVE` appropriately; unload models when idle. |
+| ChromaDB admin UI maturity | Low | The ecosystem of ChromaDB GUIs is young. **Fallback:** Swagger UI or `chroma` CLI. |
+| Upstream image changes | Low | Multi-stage `COPY --from` may break if upstream images restructure. **Mitigation:** pin image tags to specific versions. |
+| WebRTC UDP on Runpod | Medium | Runpod may not expose arbitrary UDP ranges. **Mitigation:** `NEKO_ICELITE=true`; test with TURN relay if direct UDP fails. |
+| Synapse resource usage | Medium | Synapse can be memory-hungry in large federated rooms. Mitigated by disabling federation by default and keeping the deployment private. |
+
+---
+
+## 12. Build and Deployment
+
+### 12.1 Building
+
+```bash
+docker build -t conclave:latest .
+docker tag conclave:latest your-registry/conclave:latest
+docker push your-registry/conclave:latest
+```
+
+### 12.2 Runpod Template
+
+| Field | Value |
+|---|---|
+| Container image | `your-registry/conclave:latest` |
+| Docker command | (empty — uses ENTRYPOINT) |
+| Volume mount | `/workspace` |
+| Exposed HTTP ports | `8888, 8008, 1337, 8000, 3100, 11434, 8080, 7681` |
+| Exposed TCP ports | `22` |
+| Exposed UDP ports | `52000-52100` |
+| Environment variables | See Section 7.2 |
+
+### 12.3 First Boot Checklist
+
+1. Pod starts → `startup.sh` detects no `/workspace/.initialized`
+2. Directory structure created under `/workspace/`
+3. Secrets generated, configs written from templates
+4. PostgreSQL initialized, `synapse` and `planka` databases created
+5. Synapse config generated and patched
+6. Supervisord launched — all services start
+7. Ollama pulls default model in background
+8. Access dashboard at `https://{pod-id}-8888.proxy.runpod.net/`
+9. Register first Synapse admin user via CLI
+10. Log into Element, Planka; configure pi and Claude Code in the terminal
+
+---
+
+## 13. File Manifest
+
+```
+conclave/
+├── Dockerfile
+├── supervisord.conf
+├── scripts/
+│   ├── startup.sh                # Entrypoint — first-boot init + supervisor launch
+│   ├── ollama-pull.sh            # Background model pre-pull
+│   ├── init-postgres.sh          # PostgreSQL first-boot setup
+│   ├── init-synapse.sh           # Synapse config generation
+│   └── healthcheck.sh            # Optional container health check
+├── configs/
+│   ├── nginx/
+│   │   └── nginx.conf.template
+│   ├── synapse/
+│   │   └── homeserver.override.yaml
+│   ├── element-web/
+│   │   └── config.json.template
+│   └── coding/
+│       ├── pi-models.json        # Default Ollama model definition for pi
+│       └── tmux.conf             # Default tmux configuration
+├── dashboard/
+│   └── index.html
+└── README.md
+```
+
+---
+
+## 14. Future Enhancements
+
+- **Matrix bridges:** Discord, IRC, or Slack bridges as additional supervised processes.
+- **Monitoring:** Prometheus node_exporter + Grafana for resource visibility.
+- **Backup automation:** Scheduled backup of `/workspace/data/` to S3-compatible storage.
+- **Auto-SSL:** Certbot for Let's Encrypt if a custom domain is configured.
+- **Podman fallback:** Install Podman for services that resist native integration.
+- **pi extensions:** Custom extensions for Matrix integration, Planka task management, and ChromaDB-powered RAG within the coding agent.
+- **Multi-agent coordination:** pi instances spawned via tmux for parallel task execution, coordinated through Matrix channels.
