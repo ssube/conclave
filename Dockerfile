@@ -23,8 +23,7 @@ RUN pip3 uninstall -y ansible ansible-core passlib && \
 COPY scripts/ /opt/conclave/scripts/
 RUN chmod +x /opt/conclave/scripts/*.sh
 
-EXPOSE 8888 22 8008 1337 8000 3100 11434 8080 7681
-EXPOSE 52000-52100/udp
+EXPOSE 8888 22 8008 1337 8000 3100 11434 8080 8081 7681
 
 HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
     CMD /opt/conclave/scripts/healthcheck.sh

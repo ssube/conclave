@@ -59,6 +59,8 @@ do_run() {
         -p 8888:8888 \
         -p 2222:22 \
         -p 7681:7681 \
+        -p 1337:1337 \
+        -p 8081:8081 \
         -v "${WORKSPACE_VOL}:/workspace" \
         -e NGINX_PASSWORD="$NGINX_PASSWORD" \
         -e TTYD_USER="$TTYD_USER" \

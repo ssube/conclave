@@ -38,6 +38,16 @@ export TTYD_USER="${TTYD_USER:-admin}"
 export TTYD_PASSWORD="${TTYD_PASSWORD:-$NGINX_PASSWORD}"
 export NEKO_PASSWORD="${NEKO_PASSWORD:-neko}"
 export NEKO_ADMIN_PASSWORD="${NEKO_ADMIN_PASSWORD:-admin}"
+export NEKO_TCPMUX_PORT="${NEKO_TCPMUX_PORT:-8081}"
+NEKO_NAT1TO1="${NEKO_NAT1TO1:-${EXTERNAL_HOSTNAME}}"
+# Neko requires an IPv4 address for NAT1TO1, resolve hostnames
+if echo "$NEKO_NAT1TO1" | grep -qP '^[a-zA-Z]'; then
+    _resolved=$(getent ahostsv4 "$NEKO_NAT1TO1" 2>/dev/null | awk '{print $1}' | head -1)
+    if [ -n "$_resolved" ]; then
+        NEKO_NAT1TO1="$_resolved"
+    fi
+fi
+export NEKO_NAT1TO1
 export PLANKA_ADMIN_EMAIL="${PLANKA_ADMIN_EMAIL:-admin@local}"
 export PLANKA_ADMIN_PASSWORD="${PLANKA_ADMIN_PASSWORD:-changeme}"
 export DEFAULT_OLLAMA_MODEL="${DEFAULT_OLLAMA_MODEL:-qwen3-coder:30b-a3b-q8_0}"
@@ -115,7 +125,7 @@ ln -sf "$WORKSPACE/config/element-web/config.json" /opt/element-web/config.json
 
 # Write Planka env and symlink into app directory (dotenv loads from cwd)
 cat > "$WORKSPACE/config/planka/.env" <<PLANKA_EOF
-BASE_URL=${CONCLAVE_BASE_URL}/planka
+BASE_URL=http://${EXTERNAL_HOSTNAME}:1337,http://127.0.0.1:1337,${CONCLAVE_BASE_URL}/planka
 DATABASE_URL=postgresql://planka:${PLANKA_DB_PASSWORD}@127.0.0.1:5432/planka
 SECRET_KEY=${PLANKA_SECRET_KEY}
 DEFAULT_ADMIN_EMAIL=${PLANKA_ADMIN_EMAIL}
@@ -141,8 +151,9 @@ NEKO_SCREEN=1920x1080@30
 NEKO_PASSWORD=${NEKO_PASSWORD}
 NEKO_PASSWORD_ADMIN=${NEKO_ADMIN_PASSWORD}
 NEKO_BIND=0.0.0.0:8080
-NEKO_EPR=52000-52100
+NEKO_TCPMUX=${NEKO_TCPMUX_PORT}
 NEKO_ICELITE=true
+NEKO_NAT1TO1=${NEKO_NAT1TO1}
 NEKO_EOF
 
 # Write agent credentials env file (for coding agents in tmux)
@@ -216,7 +227,7 @@ touch "$WORKSPACE/.initialized"
 # 7. Export env vars needed by supervisord programs
 # ---------------------------------------------------------------
 export TTYD_USER TTYD_PASSWORD
-export NEKO_PASSWORD NEKO_ADMIN_PASSWORD
+export NEKO_PASSWORD NEKO_ADMIN_PASSWORD NEKO_TCPMUX_PORT NEKO_NAT1TO1
 export CONCLAVE_AGENT_USER
 
 # Source Neko and ChromaDB envs for supervisord

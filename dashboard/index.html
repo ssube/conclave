@@ -58,13 +58,13 @@
 
   <div class="service">
     <div class="service-header">
-      <span class="service-name"><a href="/planka/" target="_blank">Planka</a></span>
+      <span class="service-name"><a class="port-link" data-port="1337" target="_blank">Planka</a></span>
       <span class="status status-pending" id="s-planka"></span>
     </div>
     <div class="service-desc">Kanban project management</div>
     <div class="service-links">
-      <a href="/planka/">/planka/</a> <span class="sep">|</span>
-      <a class="port-link" data-port="1337">:1337</a>
+      <a class="port-link" data-port="1337">:1337</a> <span class="sep">|</span>
+      <a href="/planka/api/access-tokens">/planka/ (API)</a>
     </div>
   </div>
 
@@ -176,7 +176,7 @@ async function checkHealth() {
   const checks = [
     { id: 's-synapse',        url: '/_matrix/client/versions' },
     { id: 's-planka',         url: '/planka/' },
-    { id: 's-chromadb',       url: '/chromadb/api/v1/heartbeat' },
+    { id: 's-chromadb',       url: '/chromadb/api/v2/heartbeat' },
     { id: 's-chromadb-admin', url: '/chromadb-admin/' },
     { id: 's-ollama',         url: '/ollama/api/tags' },
     { id: 's-neko',           url: '/neko/' },
