@@ -52,8 +52,8 @@ END
 \$\$;
 SQL
 
-sudo -u postgres createdb --owner=synapse --encoding=UTF8 --locale=C synapse 2>/dev/null || true
-sudo -u postgres createdb --owner=planka planka 2>/dev/null || true
+sudo -u postgres createdb --owner=synapse --encoding=UTF8 --locale=C --template=template0 synapse 2>/dev/null || true
+sudo -u postgres createdb --owner=planka --template=template0 planka 2>/dev/null || true
 
 # Stop postgres (supervisord will start it properly)
 sudo -u postgres "$PG_BIN/pg_ctl" -D "$PG_DATA" stop

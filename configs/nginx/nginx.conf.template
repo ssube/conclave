@@ -28,7 +28,7 @@ http {
             auth_basic "Conclave";
             auth_basic_user_file /workspace/config/nginx/htpasswd;
             root /opt/dashboard;
-            index index.html;
+            try_files /index.html =404;
         }
 
         location /env.json {

@@ -70,11 +70,6 @@ if ! curl -sf http://127.0.0.1:1337/api/access-tokens > /dev/null 2>&1; then
     exit 0
 fi
 
-# ---------------------------------------------------------------
-# Create Planka agent user (idempotent via knex)
-# ---------------------------------------------------------------
-echo "Creating Planka agent user (${CONCLAVE_AGENT_USER})..."
-
 # Source Planka env for DATABASE_URL
 if [ -f /workspace/config/planka/.env ]; then
     set -a
@@ -82,6 +77,30 @@ if [ -f /workspace/config/planka/.env ]; then
     source /workspace/config/planka/.env
     set +a
 fi
+
+# Run Planka database migrations (idempotent)
+echo "Running Planka database migrations..."
+cd /opt/planka
+node db/init.js 2>&1 || echo "WARNING: Planka migrations may have failed."
+
+# Wait for user_account table to exist (migrations may take time)
+echo "Waiting for Planka database schema..."
+for i in $(seq 1 30); do
+    if node -e "
+const knex = require('knex')({ client: 'pg', connection: process.env.DATABASE_URL });
+knex.schema.hasTable('user_account').then(exists => { knex.destroy(); process.exit(exists ? 0 : 1); }).catch(() => { knex.destroy(); process.exit(1); });
+" 2>/dev/null; then
+        echo "Planka schema is ready."
+        break
+    fi
+    echo "Planka schema not ready, retrying in 10s... ($((i * 10))/300s)"
+    sleep 10
+done
+
+# ---------------------------------------------------------------
+# Create Planka agent user (idempotent via knex)
+# ---------------------------------------------------------------
+echo "Creating Planka agent user (${CONCLAVE_AGENT_USER})..."
 
 cd /opt/planka
 node -e "
@@ -102,9 +121,18 @@ async function createAgentUser() {
   await knex('user_account').insert({
     email: email,
     password: passwordHash,
-    is_admin: false,
+    role: 'normal',
     name: '${CONCLAVE_AGENT_USER}',
     username: '${CONCLAVE_AGENT_USER}',
+    subscribe_to_own_cards: false,
+    subscribe_to_card_when_commenting: true,
+    turn_off_recent_card_highlighting: false,
+    enable_favorites_by_default: true,
+    default_editor_mode: 'wysiwyg',
+    default_home_view: 'groupedProjects',
+    default_projects_order: 'byDefault',
+    is_sso_user: false,
+    is_deactivated: false,
     created_at: new Date(),
     updated_at: new Date(),
   });

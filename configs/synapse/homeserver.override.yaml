@@ -1,9 +1,10 @@
 database:
   name: psycopg2
   args:
-    host: /var/run/postgresql
+    host: 127.0.0.1
     database: synapse
     user: synapse
+    password: PLACEHOLDER
     cp_min: 5
     cp_max: 10
 

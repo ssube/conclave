@@ -39,6 +39,7 @@ merge(config, overrides)
 config['registration_shared_secret'] = '${SYNAPSE_REGISTRATION_SHARED_SECRET}'
 config['macaroon_secret_key'] = '${SYNAPSE_MACAROON_SECRET_KEY}'
 config['form_secret'] = '${SYNAPSE_FORM_SECRET}'
+config['database']['args']['password'] = '${SYNAPSE_DB_PASSWORD}'
 
 with open("$SYNAPSE_CONFIG", 'w') as f:
     yaml.dump(config, f, default_flow_style=False)

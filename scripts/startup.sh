@@ -48,17 +48,18 @@ if [ ! -f "$WORKSPACE/.initialized" ]; then
     echo "=== First boot detected ==="
 
     # Generate secrets for anything not already in env
-    SYNAPSE_DB_PASSWORD="${SYNAPSE_DB_PASSWORD:-$(openssl rand -hex 32)}"
-    PLANKA_DB_PASSWORD="${PLANKA_DB_PASSWORD:-$(openssl rand -hex 32)}"
-    PLANKA_SECRET_KEY="${PLANKA_SECRET_KEY:-$(openssl rand -hex 32)}"
-    CHROMADB_TOKEN="${CHROMADB_TOKEN:-$(openssl rand -hex 32)}"
-    SYNAPSE_REGISTRATION_SHARED_SECRET="${SYNAPSE_REGISTRATION_SHARED_SECRET:-$(openssl rand -hex 32)}"
-    SYNAPSE_MACAROON_SECRET_KEY="${SYNAPSE_MACAROON_SECRET_KEY:-$(openssl rand -hex 32)}"
-    SYNAPSE_FORM_SECRET="${SYNAPSE_FORM_SECRET:-$(openssl rand -hex 32)}"
-    SYNAPSE_SIGNING_KEY="$(openssl rand -hex 32)"
-    ADMIN_MATRIX_PASSWORD="${ADMIN_MATRIX_PASSWORD:-$(openssl rand -hex 16)}"
-    AGENT_MATRIX_PASSWORD="${AGENT_MATRIX_PASSWORD:-$(openssl rand -hex 16)}"
-    AGENT_PLANKA_PASSWORD="${AGENT_PLANKA_PASSWORD:-$(openssl rand -hex 16)}"
+    # Export so child scripts (init-postgres.sh, init-synapse.sh) can use them
+    export SYNAPSE_DB_PASSWORD="${SYNAPSE_DB_PASSWORD:-$(openssl rand -hex 32)}"
+    export PLANKA_DB_PASSWORD="${PLANKA_DB_PASSWORD:-$(openssl rand -hex 32)}"
+    export PLANKA_SECRET_KEY="${PLANKA_SECRET_KEY:-$(openssl rand -hex 32)}"
+    export CHROMADB_TOKEN="${CHROMADB_TOKEN:-$(openssl rand -hex 32)}"
+    export SYNAPSE_REGISTRATION_SHARED_SECRET="${SYNAPSE_REGISTRATION_SHARED_SECRET:-$(openssl rand -hex 32)}"
+    export SYNAPSE_MACAROON_SECRET_KEY="${SYNAPSE_MACAROON_SECRET_KEY:-$(openssl rand -hex 32)}"
+    export SYNAPSE_FORM_SECRET="${SYNAPSE_FORM_SECRET:-$(openssl rand -hex 32)}"
+    export SYNAPSE_SIGNING_KEY="$(openssl rand -hex 32)"
+    export ADMIN_MATRIX_PASSWORD="${ADMIN_MATRIX_PASSWORD:-$(openssl rand -hex 16)}"
+    export AGENT_MATRIX_PASSWORD="${AGENT_MATRIX_PASSWORD:-$(openssl rand -hex 16)}"
+    export AGENT_PLANKA_PASSWORD="${AGENT_PLANKA_PASSWORD:-$(openssl rand -hex 16)}"
 
     cat > "$SECRETS_FILE" <<SECRETS_EOF
 SYNAPSE_DB_PASSWORD=$SYNAPSE_DB_PASSWORD
@@ -95,6 +96,11 @@ set -a
 # shellcheck source=/dev/null
 source "$SECRETS_FILE"
 set +a
+
+# Clean up stale Chromium profile lock files from previous container runs
+rm -f "$WORKSPACE/data/neko/chromium-profile/SingletonLock" \
+      "$WORKSPACE/data/neko/chromium-profile/SingletonSocket" \
+      "$WORKSPACE/data/neko/chromium-profile/SingletonCookie"
 
 # Copy nginx config (no envsubst — template only contains nginx $variables)
 cp /opt/conclave/configs/nginx/nginx.conf.template "$WORKSPACE/config/nginx/nginx.conf"
