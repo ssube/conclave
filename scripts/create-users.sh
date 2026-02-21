@@ -37,7 +37,7 @@ fi
 echo "Creating Matrix admin user..."
 register_new_matrix_user \
     -u admin \
-    -p "${ADMIN_MATRIX_PASSWORD}" \
+    -p "${CONCLAVE_ADMIN_PASSWORD}" \
     --admin \
     -c /workspace/config/synapse/homeserver.yaml \
     http://127.0.0.1:8008 2>&1 || echo "Matrix admin user may already exist (this is OK)."
@@ -48,7 +48,7 @@ register_new_matrix_user \
 echo "Creating Matrix agent user (${CONCLAVE_AGENT_USER})..."
 register_new_matrix_user \
     -u "${CONCLAVE_AGENT_USER}" \
-    -p "${AGENT_MATRIX_PASSWORD}" \
+    -p "${CONCLAVE_AGENT_PASSWORD}" \
     --no-admin \
     -c /workspace/config/synapse/homeserver.yaml \
     http://127.0.0.1:8008 2>&1 || echo "Matrix agent user may already exist (this is OK)."
@@ -117,7 +117,7 @@ async function createAgentUser() {
     console.log('Planka agent user already exists.');
     process.exit(0);
   }
-  const passwordHash = await bcrypt.hash('${AGENT_PLANKA_PASSWORD}', 10);
+  const passwordHash = await bcrypt.hash('${CONCLAVE_AGENT_PASSWORD}', 10);
   await knex('user_account').insert({
     email: email,
     password: passwordHash,
@@ -152,7 +152,7 @@ createAgentUser().catch(err => {
 echo "Creating Matrix 'home' room..."
 ADMIN_TOKEN=$(curl -s http://127.0.0.1:8008/_matrix/client/v3/login \
     -X POST -H 'Content-Type: application/json' \
-    -d "{\"type\":\"m.login.password\",\"user\":\"admin\",\"password\":\"${ADMIN_MATRIX_PASSWORD}\"}" \
+    -d "{\"type\":\"m.login.password\",\"user\":\"admin\",\"password\":\"${CONCLAVE_ADMIN_PASSWORD}\"}" \
     | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || true)
 
 if [ -n "$ADMIN_TOKEN" ]; then
@@ -177,7 +177,7 @@ if [ -n "$ADMIN_TOKEN" ]; then
         # Auto-join the agent user
         AGENT_TOKEN=$(curl -s http://127.0.0.1:8008/_matrix/client/v3/login \
             -X POST -H 'Content-Type: application/json' \
-            -d "{\"type\":\"m.login.password\",\"user\":\"${CONCLAVE_AGENT_USER}\",\"password\":\"${AGENT_MATRIX_PASSWORD}\"}" \
+            -d "{\"type\":\"m.login.password\",\"user\":\"${CONCLAVE_AGENT_USER}\",\"password\":\"${CONCLAVE_AGENT_PASSWORD}\"}" \
             | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || true)
         if [ -n "$AGENT_TOKEN" ] && [ -n "$HOME_ROOM" ]; then
             curl -s "http://127.0.0.1:8008/_matrix/client/v3/join/${HOME_ROOM}" \

@@ -29,7 +29,7 @@ bash scripts/dev.sh
 
 This builds the Docker image and starts the container with sensible defaults. Once running, the script prints all service URLs and credentials:
 
-- **Dashboard:** http://localhost:8888 (user: `admin`, password: `admin`)
+- **Dashboard:** http://localhost:8888 (user: `admin`, password: auto-generated)
 - **Element:** http://localhost:8888/element/
 - **Planka:** http://localhost:1337
 - **N.eko:** http://localhost:8888/neko/
@@ -53,7 +53,7 @@ export RUNPOD_API_KEY="your-api-key"
 bash scripts/launch-runpod.sh \
     --gpu a100-80 \
     --image your-registry/conclave:latest \
-    --env NGINX_PASSWORD=your-password \
+    --env CONCLAVE_ADMIN_PASSWORD=your-password \
     --env ANTHROPIC_API_KEY=sk-... \
     --env SSH_AUTHORIZED_KEYS="ssh-ed25519 AAAA..."
 ```
@@ -66,25 +66,23 @@ Other options: `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatab
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `NGINX_PASSWORD` | Yes | — | nginx basic auth password |
+| `CONCLAVE_ADMIN_PASSWORD` | No | auto-generated | Single admin password for all services (nginx, Matrix, Planka, Neko, ttyd, dev SSH) |
+| `CONCLAVE_AGENT_PASSWORD` | No | auto-generated | Single agent password for all services (Matrix agent, Planka agent) |
 | `MATRIX_SERVER_NAME` | No | `conclave.local` | Matrix server domain |
 | `EXTERNAL_HOSTNAME` | No | `localhost` | Pod's external hostname |
 | `NGINX_USER` | No | `admin` | nginx basic auth username |
+| `NGINX_PASSWORD` | No | `$CONCLAVE_ADMIN_PASSWORD` | Override nginx password separately |
 | `TTYD_USER` | No | `admin` | Web terminal username |
-| `TTYD_PASSWORD` | No | `$NGINX_PASSWORD` | Web terminal password |
-| `NEKO_PASSWORD` | No | `neko` | N.eko viewer password |
-| `NEKO_ADMIN_PASSWORD` | No | `admin` | N.eko admin password |
 | `PLANKA_ADMIN_EMAIL` | No | `admin@local` | Planka admin email |
-| `PLANKA_ADMIN_PASSWORD` | No | `changeme` | Planka admin password |
 | `DEFAULT_OLLAMA_MODEL` | No | `qwen3-coder:30b-a3b-q8_0` | Model to pre-pull on first boot |
 | `ANTHROPIC_API_KEY` | No | — | API key for Claude Code and pi |
 | `OPENAI_API_KEY` | No | — | API key for pi (OpenAI provider) |
 | `SSH_AUTHORIZED_KEYS` | No | — | SSH public keys (newline-separated) |
-| `CONCLAVE_DEV_PASSWORD` | No | `changeme` | Password for `dev` user (updated on each boot if set) |
+| `CONCLAVE_DEV_PASSWORD` | No | `$CONCLAVE_ADMIN_PASSWORD` | Password for `dev` user (updated on each boot) |
 | `CONCLAVE_AGENT_USER` | No | `pi` | Username for the agent user in Matrix and Planka |
 | `CONCLAVE_SETUP_ONLY` | No | — | Set to `1` to run setup and exit (for testing) |
 
-Database passwords (`SYNAPSE_DB_PASSWORD`, `PLANKA_DB_PASSWORD`), `PLANKA_SECRET_KEY`, `CHROMADB_TOKEN`, `ADMIN_MATRIX_PASSWORD`, `AGENT_MATRIX_PASSWORD`, and `AGENT_PLANKA_PASSWORD` are auto-generated on first boot if not provided, and saved to `/workspace/config/generated-secrets.env`.
+`CONCLAVE_ADMIN_PASSWORD` and `CONCLAVE_AGENT_PASSWORD` are auto-generated on first boot if not provided. Database passwords (`SYNAPSE_DB_PASSWORD`, `PLANKA_DB_PASSWORD`), `PLANKA_SECRET_KEY`, and `CHROMADB_TOKEN` are also auto-generated. All secrets are saved to `/workspace/config/generated-secrets.env`.
 
 ## First Boot
 

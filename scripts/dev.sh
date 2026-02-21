@@ -37,11 +37,7 @@ fi
 echo "Using container runtime: $CTR"
 
 # Default env vars for local development
-: "${NGINX_PASSWORD:=admin}"
 : "${TTYD_USER:=admin}"
-: "${TTYD_PASSWORD:=$NGINX_PASSWORD}"
-: "${NEKO_PASSWORD:=neko}"
-: "${NEKO_ADMIN_PASSWORD:=admin}"
 
 do_build() {
     echo "=== Building $IMAGE ==="
@@ -67,12 +63,10 @@ do_run() {
         -p 8000:8000 \
         -p 11434:11434 \
         -v "${WORKSPACE_VOL}:/workspace" \
-        -e NGINX_PASSWORD="$NGINX_PASSWORD" \
         -e TTYD_USER="$TTYD_USER" \
-        -e TTYD_PASSWORD="$TTYD_PASSWORD" \
-        -e NEKO_PASSWORD="$NEKO_PASSWORD" \
-        -e NEKO_ADMIN_PASSWORD="$NEKO_ADMIN_PASSWORD" \
         -e EXTERNAL_HOSTNAME=localhost \
+        ${CONCLAVE_ADMIN_PASSWORD:+-e CONCLAVE_ADMIN_PASSWORD="$CONCLAVE_ADMIN_PASSWORD"} \
+        ${CONCLAVE_AGENT_PASSWORD:+-e CONCLAVE_AGENT_PASSWORD="$CONCLAVE_AGENT_PASSWORD"} \
         ${SSH_AUTHORIZED_KEYS:+-e SSH_AUTHORIZED_KEYS="$SSH_AUTHORIZED_KEYS"} \
         "$IMAGE"
 
@@ -122,15 +116,13 @@ do_run() {
         fi
     fi
 
-    MATRIX_PASS=$("$CTR" exec "$CONTAINER" sh -c 'grep ADMIN_MATRIX_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2' 2>/dev/null || true)
-    if [ -n "$MATRIX_PASS" ]; then
+    ADMIN_PASS=$("$CTR" exec "$CONTAINER" sh -c 'grep CONCLAVE_ADMIN_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2' 2>/dev/null || true)
+    AGENT_PASS=$("$CTR" exec "$CONTAINER" sh -c 'grep CONCLAVE_AGENT_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2' 2>/dev/null || true)
+    if [ -n "$ADMIN_PASS" ]; then
         echo ""
         echo "=== Credentials ==="
-        echo "  Dashboard/nginx:  ${NGINX_USER:-admin} / $NGINX_PASSWORD"
-        echo "  Matrix (admin):   admin / $MATRIX_PASS"
-        echo "  Planka (admin):   admin@local / changeme"
-        echo "  N.eko (admin):    $NEKO_ADMIN_PASSWORD"
-        echo "  ttyd:             $TTYD_USER / $TTYD_PASSWORD"
+        echo "  Admin password:   $ADMIN_PASS  (nginx, Matrix, Planka, Neko, ttyd, dev SSH)"
+        echo "  Agent password:   $AGENT_PASS  (Matrix agent, Planka agent)"
     fi
 }
 

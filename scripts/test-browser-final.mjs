@@ -3,15 +3,30 @@
 // Tests the full flow including Planka terms acceptance in browser
 import { chromium } from 'playwright';
 import { mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 
 const BASE = 'http://localhost:8888';
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'admin';
-const PLANKA_USER = 'admin';
-const PLANKA_PASS = 'changeme';
-const NEKO_PASS = 'admin';
 const SCREENSHOT_DIR = '/tmp/conclave-screenshots';
 mkdirSync(SCREENSHOT_DIR, { recursive: true });
+
+// Read admin password from env or from container secrets file
+function getAdminPassword() {
+  if (process.env.CONCLAVE_ADMIN_PASSWORD) return process.env.CONCLAVE_ADMIN_PASSWORD;
+  try {
+    const out = execSync(
+      'docker exec conclave-dev grep CONCLAVE_ADMIN_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2',
+      { encoding: 'utf8', timeout: 5000 }
+    ).trim();
+    if (out) return out;
+  } catch {}
+  return 'admin'; // fallback for legacy setups
+}
+
+const ADMIN_PASS = getAdminPassword();
+const ADMIN_USER = 'admin';
+const PLANKA_USER = 'admin';
+const PLANKA_PASS = ADMIN_PASS;
+const NEKO_PASS = ADMIN_PASS;
 
 const results = [];
 function log(service, status, detail = '') {

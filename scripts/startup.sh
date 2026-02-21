@@ -33,11 +33,7 @@ export MATRIX_SERVER_NAME="${MATRIX_SERVER_NAME:-conclave.local}"
 export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-localhost}"
 export CONCLAVE_BASE_URL="${CONCLAVE_BASE_URL:-http://${EXTERNAL_HOSTNAME}:8888}"
 export NGINX_USER="${NGINX_USER:-admin}"
-export NGINX_PASSWORD="${NGINX_PASSWORD:?NGINX_PASSWORD must be set}"
 export TTYD_USER="${TTYD_USER:-admin}"
-export TTYD_PASSWORD="${TTYD_PASSWORD:-$NGINX_PASSWORD}"
-export NEKO_PASSWORD="${NEKO_PASSWORD:-neko}"
-export NEKO_ADMIN_PASSWORD="${NEKO_ADMIN_PASSWORD:-admin}"
 export NEKO_TCPMUX_PORT="${NEKO_TCPMUX_PORT:-8081}"
 NEKO_NAT1TO1="${NEKO_NAT1TO1:-${EXTERNAL_HOSTNAME}}"
 # Neko requires an IPv4 address for NAT1TO1, resolve hostnames
@@ -49,7 +45,6 @@ if echo "$NEKO_NAT1TO1" | grep -qP '^[a-zA-Z]'; then
 fi
 export NEKO_NAT1TO1
 export PLANKA_ADMIN_EMAIL="${PLANKA_ADMIN_EMAIL:-admin@local}"
-export PLANKA_ADMIN_PASSWORD="${PLANKA_ADMIN_PASSWORD:-changeme}"
 export DEFAULT_OLLAMA_MODEL="${DEFAULT_OLLAMA_MODEL:-qwen3-coder:30b-a3b-q8_0}"
 
 # ---------------------------------------------------------------
@@ -60,6 +55,8 @@ if [ ! -f "$WORKSPACE/.initialized" ]; then
 
     # Generate secrets for anything not already in env
     # Export so child scripts (init-postgres.sh, init-synapse.sh) can use them
+    export CONCLAVE_ADMIN_PASSWORD="${CONCLAVE_ADMIN_PASSWORD:-$(openssl rand -hex 16)}"
+    export CONCLAVE_AGENT_PASSWORD="${CONCLAVE_AGENT_PASSWORD:-$(openssl rand -hex 16)}"
     export SYNAPSE_DB_PASSWORD="${SYNAPSE_DB_PASSWORD:-$(openssl rand -hex 32)}"
     export PLANKA_DB_PASSWORD="${PLANKA_DB_PASSWORD:-$(openssl rand -hex 32)}"
     export PLANKA_SECRET_KEY="${PLANKA_SECRET_KEY:-$(openssl rand -hex 32)}"
@@ -68,11 +65,10 @@ if [ ! -f "$WORKSPACE/.initialized" ]; then
     export SYNAPSE_MACAROON_SECRET_KEY="${SYNAPSE_MACAROON_SECRET_KEY:-$(openssl rand -hex 32)}"
     export SYNAPSE_FORM_SECRET="${SYNAPSE_FORM_SECRET:-$(openssl rand -hex 32)}"
     export SYNAPSE_SIGNING_KEY="$(openssl rand -hex 32)"
-    export ADMIN_MATRIX_PASSWORD="${ADMIN_MATRIX_PASSWORD:-$(openssl rand -hex 16)}"
-    export AGENT_MATRIX_PASSWORD="${AGENT_MATRIX_PASSWORD:-$(openssl rand -hex 16)}"
-    export AGENT_PLANKA_PASSWORD="${AGENT_PLANKA_PASSWORD:-$(openssl rand -hex 16)}"
 
     cat > "$SECRETS_FILE" <<SECRETS_EOF
+CONCLAVE_ADMIN_PASSWORD=$CONCLAVE_ADMIN_PASSWORD
+CONCLAVE_AGENT_PASSWORD=$CONCLAVE_AGENT_PASSWORD
 SYNAPSE_DB_PASSWORD=$SYNAPSE_DB_PASSWORD
 PLANKA_DB_PASSWORD=$PLANKA_DB_PASSWORD
 PLANKA_SECRET_KEY=$PLANKA_SECRET_KEY
@@ -80,9 +76,6 @@ CHROMADB_TOKEN=$CHROMADB_TOKEN
 SYNAPSE_REGISTRATION_SHARED_SECRET=$SYNAPSE_REGISTRATION_SHARED_SECRET
 SYNAPSE_MACAROON_SECRET_KEY=$SYNAPSE_MACAROON_SECRET_KEY
 SYNAPSE_FORM_SECRET=$SYNAPSE_FORM_SECRET
-ADMIN_MATRIX_PASSWORD=$ADMIN_MATRIX_PASSWORD
-AGENT_MATRIX_PASSWORD=$AGENT_MATRIX_PASSWORD
-AGENT_PLANKA_PASSWORD=$AGENT_PLANKA_PASSWORD
 SECRETS_EOF
     chmod 600 "$SECRETS_FILE"
 
@@ -97,16 +90,15 @@ fi
 # 5. Every boot: render config templates + setup
 # ---------------------------------------------------------------
 
-# Update dev user password if provided
-if [ -n "${CONCLAVE_DEV_PASSWORD:-}" ]; then
-    echo "dev:${CONCLAVE_DEV_PASSWORD}" | chpasswd
-fi
-
 # Re-source secrets (they exist now whether first boot or not)
 set -a
 # shellcheck source=/dev/null
 source "$SECRETS_FILE"
 set +a
+
+# Update dev user password (falls back to admin password)
+CONCLAVE_DEV_PASSWORD="${CONCLAVE_DEV_PASSWORD:-$CONCLAVE_ADMIN_PASSWORD}"
+echo "dev:${CONCLAVE_DEV_PASSWORD}" | chpasswd
 
 # Clean up stale Chromium profile lock files from previous container runs
 rm -f "$WORKSPACE/data/neko/chromium-profile/SingletonLock" \
@@ -116,7 +108,8 @@ rm -f "$WORKSPACE/data/neko/chromium-profile/SingletonLock" \
 # Copy nginx config (no envsubst — template only contains nginx $variables)
 cp /opt/conclave/configs/nginx/nginx.conf.template "$WORKSPACE/config/nginx/nginx.conf"
 
-# Generate htpasswd
+# Generate htpasswd (use NGINX_PASSWORD override if set, otherwise admin password)
+NGINX_PASSWORD="${NGINX_PASSWORD:-$CONCLAVE_ADMIN_PASSWORD}"
 htpasswd -bc "$WORKSPACE/config/nginx/htpasswd" "$NGINX_USER" "$NGINX_PASSWORD" 2>/dev/null
 
 # Render Element Web config and symlink into app directory
@@ -129,7 +122,7 @@ BASE_URL=http://${EXTERNAL_HOSTNAME}:1337,http://127.0.0.1:1337,${CONCLAVE_BASE_
 DATABASE_URL=postgresql://planka:${PLANKA_DB_PASSWORD}@127.0.0.1:5432/planka
 SECRET_KEY=${PLANKA_SECRET_KEY}
 DEFAULT_ADMIN_EMAIL=${PLANKA_ADMIN_EMAIL}
-DEFAULT_ADMIN_PASSWORD=${PLANKA_ADMIN_PASSWORD}
+DEFAULT_ADMIN_PASSWORD=${CONCLAVE_ADMIN_PASSWORD}
 DEFAULT_ADMIN_NAME=Admin
 DEFAULT_ADMIN_USERNAME=admin
 TRUST_PROXY=true
@@ -145,11 +138,12 @@ CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMADB_TOKEN}
 CHROMA_SERVER_AUTHN_PROVIDER=chromadb.auth.token_authn.TokenAuthenticationServerProvider
 CHROMA_EOF
 
-# Write Neko env
+# Write Neko env (viewer and admin both use admin password)
+NEKO_PASSWORD="${NEKO_PASSWORD:-$CONCLAVE_ADMIN_PASSWORD}"
 cat > "$WORKSPACE/config/neko/.env" <<NEKO_EOF
 NEKO_SCREEN=1920x1080@30
 NEKO_PASSWORD=${NEKO_PASSWORD}
-NEKO_PASSWORD_ADMIN=${NEKO_ADMIN_PASSWORD}
+NEKO_PASSWORD_ADMIN=${CONCLAVE_ADMIN_PASSWORD}
 NEKO_BIND=0.0.0.0:8080
 NEKO_TCPMUX=${NEKO_TCPMUX_PORT}
 NEKO_ICELITE=true
@@ -161,14 +155,14 @@ AGENT_ENV_FILE="$WORKSPACE/config/agent-env.sh"
 cat > "$AGENT_ENV_FILE" <<AGENT_EOF
 # Conclave agent credentials — sourced into tmux sessions
 AGENT_MATRIX_USER=${CONCLAVE_AGENT_USER}
-AGENT_MATRIX_PASSWORD=${AGENT_MATRIX_PASSWORD}
+AGENT_MATRIX_PASSWORD=${CONCLAVE_AGENT_PASSWORD}
 AGENT_MATRIX_URL=${CONCLAVE_BASE_URL}
 AGENT_MATRIX_SERVER_NAME=${MATRIX_SERVER_NAME}
 AGENT_PLANKA_USER=${CONCLAVE_AGENT_USER}
 AGENT_PLANKA_EMAIL=${CONCLAVE_AGENT_USER}@local
-AGENT_PLANKA_PASSWORD=${AGENT_PLANKA_PASSWORD}
+AGENT_PLANKA_PASSWORD=${CONCLAVE_AGENT_PASSWORD}
 AGENT_PLANKA_URL=${CONCLAVE_BASE_URL}/planka
-AGENT_NEKO_PASSWORD=${NEKO_ADMIN_PASSWORD}
+AGENT_NEKO_PASSWORD=${CONCLAVE_ADMIN_PASSWORD}
 AGENT_CHROMADB_TOKEN=${CHROMADB_TOKEN}
 AGENT_CHROMADB_URL=http://127.0.0.1:8000
 AGENT_OLLAMA_URL=http://127.0.0.1:11434
@@ -226,8 +220,9 @@ touch "$WORKSPACE/.initialized"
 # ---------------------------------------------------------------
 # 7. Export env vars needed by supervisord programs
 # ---------------------------------------------------------------
+TTYD_PASSWORD="${TTYD_PASSWORD:-$CONCLAVE_ADMIN_PASSWORD}"
 export TTYD_USER TTYD_PASSWORD
-export NEKO_PASSWORD NEKO_ADMIN_PASSWORD NEKO_TCPMUX_PORT NEKO_NAT1TO1
+export NEKO_PASSWORD NEKO_TCPMUX_PORT NEKO_NAT1TO1
 export CONCLAVE_AGENT_USER
 
 # Source Neko and ChromaDB envs for supervisord
