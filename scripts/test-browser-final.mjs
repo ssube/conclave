@@ -9,12 +9,24 @@ const BASE = 'http://localhost:8888';
 const SCREENSHOT_DIR = '/tmp/conclave-screenshots';
 mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
+// Detect container runtime (same order as dev.sh, also try sudo)
+function detectRuntime() {
+  for (const cmd of ['docker', 'podman', 'nerdctl', 'sudo docker', 'sudo podman', 'sudo nerdctl']) {
+    try {
+      execSync(`${cmd} inspect conclave-dev`, { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
+      return cmd;
+    } catch {}
+  }
+  return 'docker';
+}
+
 // Read admin password from env or from container secrets file
 function getAdminPassword() {
   if (process.env.CONCLAVE_ADMIN_PASSWORD) return process.env.CONCLAVE_ADMIN_PASSWORD;
+  const ctr = detectRuntime();
   try {
     const out = execSync(
-      'docker exec conclave-dev grep CONCLAVE_ADMIN_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2',
+      `${ctr} exec conclave-dev grep CONCLAVE_ADMIN_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2`,
       { encoding: 'utf8', timeout: 5000 }
     ).trim();
     if (out) return out;
