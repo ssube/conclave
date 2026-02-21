@@ -289,7 +289,23 @@ async function createWorkProject() {
     });
   }
 
-  console.log('Work project created with Tasks board and 3 lists.');
+  // Create labels
+  const labels = [
+    { name: 'human', color: 'lagoon', position: 1 },
+    { name: 'agent', color: 'bright-moss', position: 2 },
+  ];
+  for (const label of labels) {
+    await knex('label').insert({
+      board_id: board.id,
+      name: label.name,
+      color: label.color,
+      position: label.position * 65536,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+  }
+
+  console.log('Work project created with Tasks board, 3 lists, and 2 labels.');
   process.exit(0);
 }
 

@@ -33,12 +33,38 @@ python3 {baseDir}/planka.py [--board <name>] <command> [options]
 
 ### Create a new card
 
+When creating cards, use the template in `{baseDir}/references/card-template.md` to
+structure the card description. Fill in each section (Goal, Context, Requirements,
+Considerations, Acceptance Criteria) based on the task at hand.
+
+Add the `human` label for tasks created by or intended for a human, and the `agent`
+label for tasks the agent should work on autonomously.
+
 ```bash
 python3 {baseDir}/planka.py create \
   --title "Review image prompts" \
-  --description "Check prompt quality and consistency" \
+  --description "$(cat <<'CARD'
+## Goal
+
+Check prompt quality and consistency across generated images.
+
+## Context
+
+Recent image generations have shown inconsistent styling. Need a review pass.
+
+## Requirements
+
+1. **Audit**: Review last 20 generated prompts for style consistency
+2. **Scope**: Focus on character prompts first
+
+## Acceptance Criteria
+
+- [ ] All prompts reviewed and scored
+- [ ] Inconsistent prompts flagged for revision
+CARD
+)" \
   --list "next up" \
-  --labels "priority,content"
+  --labels "agent"
 ```
 
 ### List cards
