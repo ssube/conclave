@@ -1,0 +1,14 @@
+# cron.tab — Scheduled jobs
+# Format: <min> <hour> <dom> <month> <dow>  <name>  [channel:<ch>]  [timeout:<min>]  [disabled]  <prompt>
+#
+# The schedule follows standard cron syntax:
+#   min(0-59) hour(0-23) dom(1-31) month(1-12) dow(0-6, 0=Sun)
+#   * = any, */N = every N, N-M = range, N,M = list
+#
+# Examples:
+#   0 9 * * 1-5  morning-brief  Check messages and summarize the day
+#   */30 * * * *  metrics-pulse  channel:data  Ingest platform metrics
+#   0 2 * * *  night-work  Run the overnight work session from OVERNIGHT.md
+#   0 * * * *  housekeeping  disabled  Run the housekeeping patrol from HOUSEKEEPING.md
+
+0 0 * * *  housekeeping  Run the housekeeping healthcheck. Invoke the healthcheck skill to check all services. If any service reports warn or critical status, investigate the issue and attempt to restart the affected service using supervisorctl. Post a summary of the results to Matrix.

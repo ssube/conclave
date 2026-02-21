@@ -195,7 +195,29 @@ async function testPlankaFullLogin(browser, urlBase, label) {
 
 (async () => {
   console.log('=== Conclave End-to-End Browser Tests ===\n');
-  const browser = await chromium.launch({ headless: true });
+
+  // Connect to browser: use CDP_URL if set, otherwise launch local Playwright Chromium
+  let browser;
+  let usedCDP = false;
+  if (process.env.CDP_URL) {
+    try {
+      browser = await chromium.connectOverCDP(process.env.CDP_URL);
+      usedCDP = true;
+      console.log(`Connected via CDP (${process.env.CDP_URL})\n`);
+    } catch (err) {
+      console.error(`Failed to connect to CDP at ${process.env.CDP_URL}: ${err.message}`);
+      process.exit(1);
+    }
+  } else {
+    try {
+      browser = await chromium.launch({ headless: true });
+      console.log('Using local Playwright Chromium\n');
+    } catch (err) {
+      console.error('No local Chromium available. Run: npx playwright install chromium');
+      console.error(`Detail: ${err.message.split('\n')[0]}`);
+      process.exit(1);
+    }
+  }
 
   // --- 1. Dashboard ---
   await testPage(browser, 'Dashboard', `${BASE}/`, {
@@ -307,7 +329,12 @@ async function testPlankaFullLogin(browser, urlBase, label) {
     await context.close();
   }
 
-  await browser.close();
+  if (usedCDP) {
+    // Disconnect without killing the container's browser
+    browser.close();
+  } else {
+    await browser.close();
+  }
 
   // --- Summary ---
   console.log('\n=== SUMMARY ===');

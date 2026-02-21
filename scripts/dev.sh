@@ -108,6 +108,8 @@ do_run() {
 
     # Run browser end-to-end tests if playwright is available
     if [ -f "$REPO_DIR/scripts/test-browser-final.mjs" ] && command -v node &>/dev/null; then
+        # Ensure Playwright Chromium is installed locally
+        npx playwright install chromium 2>/dev/null || true
         echo ""
         echo "=== Running browser tests ==="
         if node "$REPO_DIR/scripts/test-browser-final.mjs"; then
@@ -129,6 +131,10 @@ do_run() {
 
 do_test() {
     if [ -f "$REPO_DIR/scripts/test-browser-final.mjs" ] && command -v node &>/dev/null; then
+        # Ensure Playwright Chromium is installed locally
+        if ! npx playwright install chromium 2>/dev/null; then
+            echo "WARNING: Could not install Playwright Chromium." >&2
+        fi
         echo "=== Running browser tests ==="
         node "$REPO_DIR/scripts/test-browser-final.mjs"
     else

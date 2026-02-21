@@ -193,6 +193,13 @@ cp -n /opt/conclave/configs/coding/pi-models.json "$WORKSPACE/data/coding/.pi/ag
 cp -n /opt/conclave/configs/coding/pi-settings.json "$WORKSPACE/data/coding/.pi/settings.json" 2>/dev/null || true
 cp -n /opt/conclave/configs/coding/tmux.conf "$WORKSPACE/data/coding/.tmux.conf" 2>/dev/null || true
 
+# Also place pi settings and cron.tab in the projects directory (pi's launch cwd)
+# so extensions find them regardless of whether pi walks up to discover .pi/
+mkdir -p "$WORKSPACE/data/coding/projects/.pi"
+cp -n /opt/conclave/configs/coding/pi-settings.json "$WORKSPACE/data/coding/projects/.pi/settings.json" 2>/dev/null || true
+cp -n /opt/conclave/configs/coding/cron.tab "$WORKSPACE/data/coding/.pi/cron.tab" 2>/dev/null || true
+cp -n /opt/conclave/configs/coding/cron.tab "$WORKSPACE/data/coding/projects/.pi/cron.tab" 2>/dev/null || true
+
 # Re-chown coding dir after syncing assets (rsync/cp run as root)
 chown -R dev:dev "$WORKSPACE/data/coding/"
 
