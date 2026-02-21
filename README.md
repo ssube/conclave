@@ -14,7 +14,7 @@ A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a k
 | ChromaDB | 8000 | `/chromadb/` | Vector database for RAG |
 | ChromaDB Admin | 3100 | `/chromadb-admin/` | Vector database browser |
 | Ollama | 11434 | `/ollama/` | LLM inference (OpenAI-compatible API) |
-| N.eko | 8080 | `/neko/` | WebRTC remote browser session |
+| N.eko | 8080 | `/neko/` | WebRTC remote browser session (TCPMUX on 8081) |
 | Chromium CDP | 9222 | — | Browser automation (internal) |
 | ttyd | 7681 | `/terminal/` | Web terminal (tmux) |
 | SSH | 22 | — | Shell access as `dev` user |
@@ -27,11 +27,19 @@ Build and run locally with the dev script:
 bash scripts/dev.sh
 ```
 
-This builds the Docker image and starts the container with sensible defaults. Once running:
+This builds the Docker image and starts the container with sensible defaults. Once running, the script prints all service URLs and credentials:
 
 - **Dashboard:** http://localhost:8888 (user: `admin`, password: `admin`)
+- **Element:** http://localhost:8888/element/
+- **Planka:** http://localhost:1337
+- **N.eko:** http://localhost:8888/neko/
 - **Terminal:** http://localhost:7681
+- **ChromaDB:** http://localhost:8000
+- **Ollama:** http://localhost:11434
+- **Synapse:** http://localhost:8008
 - **SSH:** `ssh -p 2222 dev@localhost`
+
+After first-boot setup completes, auto-generated credentials (Matrix admin password, etc.) are printed to the console.
 
 Subcommands: `build`, `run`, `stop`, `logs`. Override the container runtime with `CONTAINER_RUNTIME=podman`.
 
@@ -92,8 +100,10 @@ On first start, `startup.sh` automatically:
 8. Starts supervisord (all services come up in priority order)
 9. Pulls the default Ollama model in the background
 10. Creates admin and agent users in Matrix and Planka (background oneshot)
+11. Creates a `#home` room in Matrix and invites the agent user
+12. Creates a "Work" project in Planka with a "Tasks" board and To Do / In Progress / Done lists
 
-Subsequent boots skip database initialization and secret generation, re-render configs (including agent-env.sh), and start supervisord. User creation is idempotent — existing users are skipped.
+Subsequent boots skip database initialization and secret generation, re-render configs (including agent-env.sh), and start supervisord. User and resource creation is idempotent — existing users, rooms, and projects are skipped.
 
 ## SSH Access
 
@@ -114,7 +124,7 @@ Keys are written to `/workspace/data/coding/.ssh/authorized_keys` on the persist
 
 ## Agent Credentials
 
-On each boot, `startup.sh` writes `/workspace/config/agent-env.sh` with credentials for the coding agents (pi, Claude Code) to authenticate to Conclave services. This file is sourced into tmux sessions automatically.
+On each boot, `startup.sh` writes `/workspace/config/agent-env.sh` with credentials for the coding agents (Pi, Claude Code, Codex) to authenticate to Conclave services. This file is sourced into tmux sessions automatically.
 
 Available environment variables in the tmux session:
 
@@ -134,6 +144,28 @@ Available environment variables in the tmux session:
 | `AGENT_OLLAMA_URL` | Ollama API URL |
 
 A Matrix admin user (`admin`) and a Planka admin user are also created automatically (see `scripts/create-users.sh`).
+
+## Coding Agents
+
+The container includes three coding agent CLIs, each launched in its own tmux window:
+
+| Agent | tmux window | Description |
+|---|---|---|
+| [Pi](https://github.com/badlogic/pi-mono) | `pi` | Multi-provider coding agent |
+| [Claude Code](https://github.com/anthropics/claude-code) | `claude` | Anthropic's CLI for Claude |
+| [Codex](https://github.com/openai/codex) | `codex` | OpenAI's coding CLI |
+
+A fourth window (`dev`) provides a plain bash shell. The tmux session is pre-created by supervisord and shared across ttyd and SSH connections.
+
+### Pi Model Configuration
+
+Pi is configured with three providers in `configs/coding/pi-models.json`:
+
+- **ollama** — Local inference via the container's Ollama instance (`qwen3-coder:30b-a3b-q8_0`)
+- **anthropic** — Claude Sonnet 4.6 and Claude Haiku 4.5 (requires `ANTHROPIC_API_KEY`)
+- **openai** — o3, o4-mini, and GPT-4.1 (requires `OPENAI_API_KEY`)
+
+The configuration uses the provider format with per-provider `baseUrl`, `api`, and `apiKey` fields. API keys named in UPPER_CASE are resolved from environment variables at runtime.
 
 ## Security
 
@@ -169,11 +201,22 @@ Individual services can be toggled via `ansible/group_vars/all.yml` (e.g., `conc
 
 ### Testing
 
+Security tests:
+
 ```bash
 sudo bash scripts/test-security.sh
 ```
 
 Runs the Ansible playbook, executes `startup.sh` in setup-only mode, then validates dev user, SSH hardening, fail2ban jails, directory ownership, and supervisord config.
+
+Browser end-to-end tests (requires a running container):
+
+```bash
+npm install --no-save playwright && npx playwright install chromium
+node scripts/test-browser-final.mjs
+```
+
+Tests all 9 services via Playwright: dashboard, Element, Matrix API, ChromaDB, Ollama, terminal, Planka login (including terms acceptance), and Neko WebRTC.
 
 ## Project Structure
 
@@ -190,11 +233,13 @@ conclave/
 │   ├── dev.sh                       # Local build + run
 │   ├── launch-runpod.sh             # Runpod deployment
 │   ├── test-security.sh             # Security validation
+│   ├── test-browser-final.mjs       # Playwright end-to-end browser tests
 │   ├── init-postgres.sh             # PostgreSQL first-boot
 │   ├── init-synapse.sh              # Synapse config generation
 │   ├── ollama-pull.sh               # Background model pull
-│   ├── create-users.sh             # Post-start user creation
-│   ├── tmux-workspace.sh           # tmux session launcher
+│   ├── create-users.sh              # Post-start user + resource creation
+│   ├── tmux-session.sh              # Pre-create tmux session (supervisord)
+│   ├── tmux-workspace.sh            # tmux attach/create for ttyd
 │   └── healthcheck.sh               # Container health check
 ├── configs/
 │   ├── supervisord.conf             # Process manager definitions
@@ -215,4 +260,4 @@ Conclave runs all services as native processes managed by **supervisord** inside
 
 **Runtime:** `startup.sh` handles first-boot initialization (secrets, databases, configs), then hands off to supervisord. All application state persists on the `/workspace` volume across pod restarts.
 
-**Networking:** nginx on port 8888 reverse-proxies all services by path prefix. Each service also listens on its own port for direct access.
+**Networking:** nginx on port 8888 reverse-proxies all services by path prefix. Each service also listens on its own port for direct access. N.eko uses a single TCP port (8081, TCPMUX) for all WebRTC media instead of a UDP port range, simplifying firewall and container port configuration.
