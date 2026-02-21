@@ -14,7 +14,7 @@ echo "=== Initializing PostgreSQL $PG_VERSION ==="
 if [ ! -f "$PG_DATA/postgresql.conf" ]; then
     rm -rf "${PG_DATA:?}"/*
     chown postgres:postgres "$PG_DATA"
-    sudo -u postgres "$PG_BIN/initdb" -D "$PG_DATA" --auth-local peer --auth-host scram-sha-256 --no-instructions
+    sudo -u postgres "$PG_BIN/initdb" -D "$PG_DATA" --auth-local trust --auth-host scram-sha-256 --no-instructions
 fi
 
 # Ensure runtime directories exist (tmpfs clears /var/run on container start)

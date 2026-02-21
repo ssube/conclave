@@ -96,8 +96,8 @@ set -a
 source "$SECRETS_FILE"
 set +a
 
-# Render nginx config
-envsubst < /opt/conclave/configs/nginx/nginx.conf.template > "$WORKSPACE/config/nginx/nginx.conf"
+# Copy nginx config (no envsubst — template only contains nginx $variables)
+cp /opt/conclave/configs/nginx/nginx.conf.template "$WORKSPACE/config/nginx/nginx.conf"
 
 # Generate htpasswd
 htpasswd -bc "$WORKSPACE/config/nginx/htpasswd" "$NGINX_USER" "$NGINX_PASSWORD" 2>/dev/null
@@ -105,7 +105,7 @@ htpasswd -bc "$WORKSPACE/config/nginx/htpasswd" "$NGINX_USER" "$NGINX_PASSWORD" 
 # Render Element Web config
 envsubst < /opt/conclave/configs/element-web/config.json.template > "$WORKSPACE/config/element-web/config.json"
 
-# Write Planka env
+# Write Planka env and symlink into app directory (dotenv loads from cwd)
 cat > "$WORKSPACE/config/planka/.env" <<PLANKA_EOF
 BASE_URL=https://${EXTERNAL_HOSTNAME}/planka
 DATABASE_URL=postgresql://planka:${PLANKA_DB_PASSWORD}@127.0.0.1:5432/planka
@@ -116,6 +116,7 @@ DEFAULT_ADMIN_NAME=Admin
 DEFAULT_ADMIN_USERNAME=admin
 TRUST_PROXY=true
 PLANKA_EOF
+ln -sf "$WORKSPACE/config/planka/.env" /opt/planka/.env
 
 # Write ChromaDB env
 cat > "$WORKSPACE/config/chromadb/.env" <<CHROMA_EOF
@@ -223,6 +224,9 @@ if [ "${CONCLAVE_SETUP_ONLY:-}" = "1" ]; then
     echo "=== Setup complete (CONCLAVE_SETUP_ONLY=1, skipping supervisord) ==="
     exit 0
 fi
+
+# Ensure runtime directories exist (tmpfs clears /var/run on container start)
+mkdir -p /var/run/dbus
 
 echo "=== Starting supervisord ==="
 exec supervisord -n -c /etc/supervisor/conf.d/conclave.conf
