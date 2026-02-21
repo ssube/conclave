@@ -1,0 +1,11 @@
+{
+  "cron": {
+    "autostart": true,
+    "activeHours": { "start": "06:00", "end": "02:00" }
+  },
+  "heartbeat": {
+    "autostart": true,
+    "intervalMinutes": 15,
+    "activeHours": { "start": "06:00", "end": "02:00" }
+  }
+}

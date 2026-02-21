@@ -13,25 +13,25 @@ Fetch recent messages from Matrix rooms. Enables async communication — check f
 ### Check recent messages in a room
 
 ```bash
-python3 {baseDir}/matrix_read.py --room general
+python3 {baseDir}/matrix_read.py --room home
 ```
 
 ### Filter to messages from a specific user
 
 ```bash
-python3 {baseDir}/matrix_read.py --room content-drafts --from ssube
+python3 {baseDir}/matrix_read.py --room home --from ssube
 ```
 
 ### Check messages from the last N minutes
 
 ```bash
-python3 {baseDir}/matrix_read.py --room general --since 60
+python3 {baseDir}/matrix_read.py --room home --since 60
 ```
 
 ### Check for reactions on a specific message
 
 ```bash
-python3 {baseDir}/matrix_read.py --room content-drafts --reactions-for '$eventId'
+python3 {baseDir}/matrix_read.py --room home --reactions-for '$eventId'
 ```
 
 ### Check all rooms for unread messages from humans
@@ -43,34 +43,18 @@ python3 {baseDir}/matrix_read.py --all --humans-only
 ### Output as JSON for programmatic use
 
 ```bash
-python3 {baseDir}/matrix_read.py --room general --json
+python3 {baseDir}/matrix_read.py --room home --json
 ```
 
 ## Room Aliases
 
-Use short names instead of full room IDs with `matrix_read.py`.
+Use short names instead of full room IDs. Room aliases are resolved via the Matrix directory API.
 
-When using the **`send` tool** (built-in Matrix messaging), you must use the **full room ID** — aliases and short names won't work.
+| Alias | Resolved As |
+|-------|-------------|
+| `home` | `#home:<MATRIX_SERVER_NAME>` |
 
-| Alias | Full Room ID | Purpose |
-|-------|-------------|---------|
-| `general` | `!EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch` | Main coordination channel with Sean |
-| `drafts` | `!DTwKgcNMAqKTqCCbyY:matrix.home.holdmyran.ch` | HITL draft review and approval |
-| `published` | `!HRUMcHLpGmtWRPMjpz:matrix.home.holdmyran.ch` | Published content log |
-| `data` | `!AXdouVagECaWEfWlqF:matrix.home.holdmyran.ch` | Nox data queries (#thalis-ask-data) |
-| `image` | `!oGVcqxQeeZWtYNqWIk:matrix.home.holdmyran.ch` | Stella image generation (#thalis-conjure-image) |
-| `calendar` | `!xJqiFXNHCVTkaeoIfl:matrix.home.holdmyran.ch` | Content scheduling |
-
-### Quick Copy for send tool
-
-```
-General:   !EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch
-Drafts:    !DTwKgcNMAqKTqCCbyY:matrix.home.holdmyran.ch
-Published: !HRUMcHLpGmtWRPMjpz:matrix.home.holdmyran.ch
-Data:      !AXdouVagECaWEfWlqF:matrix.home.holdmyran.ch
-Image:     !oGVcqxQeeZWtYNqWIk:matrix.home.holdmyran.ch
-Calendar:  !xJqiFXNHCVTkaeoIfl:matrix.home.holdmyran.ch
-```
+Any room alias (`#room:server`) or internal room ID (`!id:server`) can also be used directly.
 
 ## Parameters
 
@@ -88,24 +72,13 @@ Calendar:  !xJqiFXNHCVTkaeoIfl:matrix.home.holdmyran.ch
 
 ## Environment Variables
 
-- `MATRIX_HOMESERVER_URL`: Matrix server URL
+- `MATRIX_HOMESERVER_URL`: Matrix server URL (falls back to `AGENT_MATRIX_URL`, default `http://127.0.0.1:8008`)
 - `MATRIX_ACCESS_TOKEN`: Bot access token
-
-## Integration with Overnight Loop
-
-The overnight prompt can use this to check for instructions:
-
-```bash
-# Check if Sean has said anything in the last hour
-python3 matrix_read.py --all --humans-only --since 60
-
-# Check for reactions on draft posts (approvals/rejections)
-python3 matrix_read.py --room drafts --since 120
-```
+- `MATRIX_SERVER_NAME`: Matrix server name for alias resolution (falls back to `AGENT_MATRIX_SERVER_NAME`)
 
 ## Reaction Meanings (HITL Protocol)
 
-When checking content-drafts for approval reactions:
+When checking rooms for approval reactions:
 
 | Reaction | Meaning |
 |----------|---------|

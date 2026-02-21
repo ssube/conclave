@@ -19,6 +19,9 @@
       - playwright
       - chromadb-client
       - httpx
+      - websocket-client
+      - Pillow
+      - pyyaml
 
 - name: Create pi assets directory
   file:
@@ -37,6 +40,7 @@
     remote_src: true
   loop:
     - pi-models.json
+    - pi-settings.json
     - tmux.conf
 
 - name: Verify pi is installed

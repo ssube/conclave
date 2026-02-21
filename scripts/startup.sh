@@ -166,6 +166,8 @@ AGENT_NEKO_PASSWORD=${CONCLAVE_ADMIN_PASSWORD}
 AGENT_CHROMADB_TOKEN=${CHROMADB_TOKEN}
 AGENT_CHROMADB_URL=http://127.0.0.1:8000
 AGENT_OLLAMA_URL=http://127.0.0.1:11434
+MATRIX_HOMESERVER_URL=http://127.0.0.1:8008
+MATRIX_SERVER_NAME=${MATRIX_SERVER_NAME}
 AGENT_EOF
 chmod 600 "$AGENT_ENV_FILE"
 chown dev:dev "$AGENT_ENV_FILE"
@@ -188,6 +190,7 @@ rsync -a /opt/conclave/pi/skills/launch-conclave/ "$WORKSPACE/data/coding/.claud
 
 # Copy pi-models.json and tmux.conf if not present (don't overwrite user edits)
 cp -n /opt/conclave/configs/coding/pi-models.json "$WORKSPACE/data/coding/.pi/agent/models.json" 2>/dev/null || true
+cp -n /opt/conclave/configs/coding/pi-settings.json "$WORKSPACE/data/coding/.pi/settings.json" 2>/dev/null || true
 cp -n /opt/conclave/configs/coding/tmux.conf "$WORKSPACE/data/coding/.tmux.conf" 2>/dev/null || true
 
 # Re-chown coding dir after syncing assets (rsync/cp run as root)

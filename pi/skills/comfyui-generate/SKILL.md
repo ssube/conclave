@@ -1,12 +1,12 @@
 ---
-name: generate-image
+name: comfyui-generate
 description: >-
   Generate images via ComfyUI API with support for Flux and LoRAs, plus
   image-to-video via Wan 2.2. Use when creating images, generating artwork,
   running ComfyUI workflows, or producing visual content.
 ---
 
-# Generate Image Skill
+# ComfyUI Generate Skill
 
 Generate images using ComfyUI API with Flux text-to-image and Wan 2.2 image-to-video.
 

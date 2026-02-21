@@ -6,31 +6,25 @@ description: >-
 
 # Matrix Send
 
-Send messages and media to Matrix rooms. Use the Pi `send` tool for text messages. For images/video, use curl to the Matrix API.
+Send messages and media to Matrix rooms. Use the Pi `send` tool for text messages. For images/video, use the send.sh script or curl to the Matrix API.
 
 ## Pi Send Tool (Preferred for Text)
 
-The Pi runtime has a built-in `send` tool — use it for plain text:
+The Pi runtime has a built-in `send` tool — use it for plain text. You need the internal room ID (resolve aliases first via the Matrix directory API or use `matrix_read.py`).
 
-```
-Use the send tool with roomId "!EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch" and message "Hello from Thalis"
-```
+## Room Aliases
 
-## Room IDs
+| Alias | Resolved As |
+|-------|-------------|
+| `home` | `#home:<MATRIX_SERVER_NAME>` |
 
-| Room | ID |
-|------|----|
-| general | `!EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch` |
-| drafts | `!DTwKgcNMAqKTqCCbyY:matrix.home.holdmyran.ch` |
-| published | `!HRUMcHLpGmtWRPMjpz:matrix.home.holdmyran.ch` |
-| data | `!AXdouVagECaWEfWlqF:matrix.home.holdmyran.ch` |
-| image | `!oGVcqxQeeZWtYNqWIk:matrix.home.holdmyran.ch` |
-| calendar | `!xJqiFXNHCVTkaeoIfl:matrix.home.holdmyran.ch` |
+Aliases are resolved via the Matrix directory API. Any room alias (`#room:server`) or internal room ID (`!id:server`) can also be used directly.
 
 ## Environment
 
-- `MATRIX_HOMESERVER_URL` — Homeserver base URL
+- `MATRIX_HOMESERVER_URL` — Homeserver base URL (falls back to `AGENT_MATRIX_URL`, default `http://127.0.0.1:8008`)
 - `MATRIX_ACCESS_TOKEN` — Bot access token
+- `MATRIX_SERVER_NAME` — Matrix server name for alias resolution (falls back to `AGENT_MATRIX_SERVER_NAME`)
 
 ## Send Text via curl
 
@@ -38,8 +32,8 @@ Use the send tool with roomId "!EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch" and
 curl -sf -X PUT \
   -H "Authorization: Bearer $MATRIX_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"msgtype": "m.text", "body": "Hello from Thalis"}' \
-  "${MATRIX_HOMESERVER_URL}/_matrix/client/v3/rooms/!EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch/send/m.room.message/$(date +%s%N)"
+  -d '{"msgtype": "m.text", "body": "Hello"}' \
+  "${MATRIX_HOMESERVER_URL}/_matrix/client/v3/rooms/ROOM_ID/send/m.room.message/$(date +%s%N)"
 ```
 
 The txnId (last path segment) must be unique per request — `date +%s%N` works.
@@ -100,7 +94,3 @@ curl -sf -X PUT \
   -d '{"msgtype": "m.text", "body": "**Bold** text", "format": "org.matrix.custom.html", "formatted_body": "<b>Bold</b> text"}' \
   "${MATRIX_HOMESERVER_URL}/_matrix/client/v3/rooms/ROOM_ID/send/m.room.message/$(date +%s%N)"
 ```
-
-## Legacy Script
-
-A bash script is available at `{baseDir}/send.sh` but curl or the Pi `send` tool are preferred.

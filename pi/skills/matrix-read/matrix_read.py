@@ -13,45 +13,25 @@ import urllib.parse
 import urllib.error
 from datetime import datetime, timezone, timedelta
 
-import sys; sys.path.insert(0, "/workspace"); import load_env  # noqa: E402
-
-# ─── Watermark Integration ──────────────────────────────────────────────────
-# Advance heartbeat watermarks when messages are read, so the heartbeat
-# doesn't re-report messages already seen via manual reads.
-
-def _advance_watermark(room: str, ts: int):
-    """Best-effort watermark advance — never fails the read."""
-    try:
-        sys.path.insert(0, "/workspace/scripts")
-        from watermark import advance_watermark
-        advance_watermark(room, ts)
-    except Exception:
-        pass  # watermark is best-effort, never block reads
-
-
 # ─── Room Aliases ───────────────────────────────────────────────────────────
 
+_SERVER_NAME = os.environ.get("MATRIX_SERVER_NAME", os.environ.get("AGENT_MATRIX_SERVER_NAME", "conclave.local"))
+
 ROOM_ALIASES = {
-    "general":   "!EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch",
-    "drafts":    "!DTwKgcNMAqKTqCCbyY:matrix.home.holdmyran.ch",
-    "published": "!HRUMcHLpGmtWRPMjpz:matrix.home.holdmyran.ch",
-    "data":      "!AXdouVagECaWEfWlqF:matrix.home.holdmyran.ch",
-    "image":     "!oGVcqxQeeZWtYNqWIk:matrix.home.holdmyran.ch",
-    "calendar":  "!xJqiFXNHCVTkaeoIfl:matrix.home.holdmyran.ch",
+    "home": f"#home:{_SERVER_NAME}",
 }
 
 # Known bot/agent user IDs (for --humans-only filtering)
+_AGENT_USER = os.environ.get("CONCLAVE_AGENT_USER", os.environ.get("AGENT_MATRIX_USER", "pi"))
 BOT_USERS = {
-    "@thalis-agent:matrix.home.holdmyran.ch",
-    "@image-bot:matrix.home.holdmyran.ch",
-    "@data-bot:matrix.home.holdmyran.ch",
+    f"@{_AGENT_USER}:{_SERVER_NAME}",
 }
 
 # ─── Matrix API Helpers ─────────────────────────────────────────────────────
 
 def matrix_get(path, params=None):
     """Make an authenticated GET request to the Matrix API."""
-    homeserver = os.environ.get("MATRIX_HOMESERVER_URL", "").rstrip("/")
+    homeserver = os.environ.get("MATRIX_HOMESERVER_URL", os.environ.get("AGENT_MATRIX_URL", "http://127.0.0.1:8008")).rstrip("/")
     token = os.environ.get("MATRIX_ACCESS_TOKEN", "")
     
     if not homeserver or not token:
@@ -77,47 +57,45 @@ def matrix_get(path, params=None):
 
 def resolve_room(room_str):
     """Resolve a room identifier to an internal room ID.
-    
+
     Accepts:
-      - Internal IDs: !EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch
-      - Shortnames: general, drafts, published, data, image, calendar
-      - Full alias format: #thalis-general:matrix.home.holdmyran.ch (mapped locally)
-    
-    Note: Room aliases don't actually exist on the server — the #thalis-* format
-    is resolved via a local map, not the Matrix directory API.
+      - Internal IDs: !abc123:server
+      - Shortnames: home (or any key in ROOM_ALIASES)
+      - Full alias format: #home:server (resolved via Matrix directory API)
     """
     if room_str.startswith("!"):
         return room_str
     if room_str in ROOM_ALIASES:
-        return ROOM_ALIASES[room_str]
-    
-    # Strip # prefix and :server suffix for matching
-    clean = room_str.lstrip("#")
-    if ":" in clean:
-        clean = clean.split(":")[0]
-    # Strip thalis- prefix if present
-    if clean.startswith("thalis-"):
-        clean = clean[len("thalis-"):]
-    # Map common room name variants
-    name_map = {
-        "general": "general",
-        "content-drafts": "drafts",
-        "content-published": "published",
-        "ask-data": "data",
-        "conjure-image": "image",
-        "content-calendar": "calendar",
-    }
-    mapped = name_map.get(clean, clean)
-    if mapped in ROOM_ALIASES:
-        return ROOM_ALIASES[mapped]
-    
-    # Partial match on shortnames
-    for alias, room_id in ROOM_ALIASES.items():
-        if alias in clean or clean in alias:
-            return room_id
-    
+        # Aliases starting with # need to be resolved via the directory API
+        alias = ROOM_ALIASES[room_str]
+        if alias.startswith("#"):
+            return _resolve_alias(alias)
+        return alias
+
+    # If it looks like a full alias (#room:server), resolve via API
+    if room_str.startswith("#"):
+        return _resolve_alias(room_str)
+
+    # Try as an alias with server name appended
+    full_alias = f"#{room_str}:{_SERVER_NAME}"
+    try:
+        return _resolve_alias(full_alias)
+    except SystemExit:
+        pass
+
     print(f"ERROR: Unknown room '{room_str}'. Known: {', '.join(ROOM_ALIASES.keys())}", file=sys.stderr)
     sys.exit(1)
+
+
+def _resolve_alias(alias):
+    """Resolve a Matrix room alias to a room ID via the directory API."""
+    encoded = urllib.parse.quote(alias)
+    data = matrix_get(f"/_matrix/client/v3/directory/room/{encoded}")
+    room_id = data.get("room_id")
+    if not room_id:
+        print(f"ERROR: Could not resolve alias '{alias}'", file=sys.stderr)
+        sys.exit(1)
+    return room_id
 
 
 def get_joined_rooms():
@@ -308,15 +286,7 @@ def main():
     
     for room_id in rooms:
         events = fetch_messages(room_id, limit=args.limit, since_minutes=args.since)
-        
-        # Advance heartbeat watermarks so the heartbeat won't re-report
-        # messages we've already seen via manual reads.
-        if events:
-            max_ts = max(e.get("origin_server_ts", 0) for e in events)
-            if max_ts > 0:
-                room_name = get_room_name(room_id)
-                _advance_watermark(room_name, max_ts)
-        
+
         # Filter by sender
         if args.from_user:
             events = [e for e in events if args.from_user in e.get("sender", "")]

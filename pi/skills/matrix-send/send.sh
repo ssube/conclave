@@ -2,8 +2,7 @@
 set -euo pipefail
 
 # Self-load environment (idempotent — won't override already-set vars)
-[[ -f /workspace/.env ]] && set -a && source /workspace/.env 2>/dev/null && set +a || true
-[[ -f /workspace/.env.thalis ]] && set -a && source /workspace/.env.thalis 2>/dev/null && set +a || true
+[[ -f /workspace/config/agent-env.sh ]] && set -a && source /workspace/config/agent-env.sh 2>/dev/null && set +a || true
 
 # Matrix Send — Post messages, images, and videos to Matrix rooms
 # Usage:
@@ -14,7 +13,7 @@ set -euo pipefail
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-HOMESERVER="${MATRIX_HOMESERVER_URL:-https://matrix.home.holdmyran.ch}"
+HOMESERVER="${MATRIX_HOMESERVER_URL:-${AGENT_MATRIX_URL:-http://127.0.0.1:8008}}"
 ACCESS_TOKEN="${MATRIX_ACCESS_TOKEN:-}"
 
 if [[ -z "$ACCESS_TOKEN" ]]; then
@@ -23,13 +22,9 @@ if [[ -z "$ACCESS_TOKEN" ]]; then
 fi
 
 # Room alias mappings (matching matrix-read skill)
+_SERVER_NAME="${MATRIX_SERVER_NAME:-${AGENT_MATRIX_SERVER_NAME:-conclave.local}}"
 declare -A ROOM_MAP=(
-  [general]="!EOujKPtUOJPbbyBnHr:matrix.home.holdmyran.ch"
-  [drafts]="!DTwKgcNMAqKTqCCbyY:matrix.home.holdmyran.ch"
-  [published]="!HRUMcHLpGmtWRPMjpz:matrix.home.holdmyran.ch"
-  [data]="!AXdouVagECaWEfWlqF:matrix.home.holdmyran.ch"
-  [image]="!oGVcqxQeeZWtYNqWIk:matrix.home.holdmyran.ch"
-  [calendar]="!xJqiFXNHCVTkaeoIfl:matrix.home.holdmyran.ch"
+  [home]="#home:${_SERVER_NAME}"
 )
 
 # Resolve room alias to room ID
