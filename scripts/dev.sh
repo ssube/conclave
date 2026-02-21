@@ -61,6 +61,9 @@ do_run() {
         -p 7681:7681 \
         -p 1337:1337 \
         -p 8081:8081 \
+        -p 8008:8008 \
+        -p 8000:8000 \
+        -p 11434:11434 \
         -v "${WORKSPACE_VOL}:/workspace" \
         -e NGINX_PASSWORD="$NGINX_PASSWORD" \
         -e TTYD_USER="$TTYD_USER" \
@@ -73,12 +76,39 @@ do_run() {
 
     echo ""
     echo "Container started: $CONTAINER"
-    echo "  Dashboard: http://localhost:8888"
-    echo "  ttyd:      http://localhost:7681"
-    echo "  SSH:       ssh -p 2222 dev@localhost"
+    echo "  Dashboard:  http://localhost:8888       (nginx, all services)"
+    echo "  Element:    http://localhost:8888/element/"
+    echo "  Planka:     http://localhost:1337"
+    echo "  N.eko:      http://localhost:8888/neko/"
+    echo "  Terminal:   http://localhost:7681"
+    echo "  ChromaDB:   http://localhost:8000"
+    echo "  Ollama:     http://localhost:11434"
+    echo "  Synapse:    http://localhost:8008"
+    echo "  SSH:        ssh -p 2222 dev@localhost"
     echo ""
-    echo "  Logs:      bash scripts/dev.sh logs"
-    echo "  Stop:      bash scripts/dev.sh stop"
+    echo "  Logs:       bash scripts/dev.sh logs"
+    echo "  Stop:       bash scripts/dev.sh stop"
+
+    # Wait for secrets to be generated, then print credentials
+    echo ""
+    echo "Waiting for first-boot setup to complete..."
+    for _i in $(seq 1 30); do
+        if "$CTR" exec "$CONTAINER" test -f /workspace/config/generated-secrets.env 2>/dev/null; then
+            break
+        fi
+        sleep 2
+    done
+
+    MATRIX_PASS=$("$CTR" exec "$CONTAINER" sh -c 'grep ADMIN_MATRIX_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2' 2>/dev/null || true)
+    if [ -n "$MATRIX_PASS" ]; then
+        echo ""
+        echo "=== Credentials ==="
+        echo "  Dashboard/nginx:  ${NGINX_USER:-admin} / $NGINX_PASSWORD"
+        echo "  Matrix (admin):   admin / $MATRIX_PASS"
+        echo "  Planka (admin):   admin@local / changeme"
+        echo "  N.eko (admin):    $NEKO_ADMIN_PASSWORD"
+        echo "  ttyd:             $TTYD_USER / $TTYD_PASSWORD"
+    fi
 }
 
 do_stop() {

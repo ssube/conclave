@@ -6,6 +6,7 @@
   loop:
     - "@mariozechner/pi-coding-agent"
     - "@anthropic-ai/claude-code"
+    - "@openai/codex"
 
 - name: Install tmux
   apt:
@@ -44,6 +45,10 @@
 
 - name: Verify Claude Code is installed
   command: claude --version
+  changed_when: false
+
+- name: Verify Codex CLI is installed
+  command: codex --version
   changed_when: false
 
 - name: Verify pi skills are deployed
