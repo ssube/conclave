@@ -1,0 +1,142 @@
+{
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "200",
+        1
+      ],
+      "text": [
+        "112",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "31",
+        0
+      ],
+      "vae": [
+        "30",
+        2
+      ]
+    }
+  },
+  "27": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1280,
+      "batch_size": 1
+    }
+  },
+  "30": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "flux_1_d/flux-dev-fp8.safetensors"
+    }
+  },
+  "31": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "200",
+        0
+      ],
+      "positive": [
+        "35",
+        0
+      ],
+      "negative": [
+        "33",
+        0
+      ],
+      "latent_image": [
+        "27",
+        0
+      ],
+      "seed": 193138851092356,
+      "control_after_generate": "randomize",
+      "steps": 35,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "sgm_uniform",
+      "denoise": 1
+    }
+  },
+  "33": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "200",
+        1
+      ],
+      "text": ""
+    }
+  },
+  "35": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": [
+        "6",
+        0
+      ],
+      "guidance": 4
+    }
+  },
+  "96": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": [
+        "30",
+        0
+      ],
+      "clip": [
+        "30",
+        1
+      ],
+      "lora_name": "my-loras/concept-lora.safetensors",
+      "strength_model": 0.7,
+      "strength_clip": 0.7
+    }
+  },
+  "112": {
+    "class_type": "StringConstantMultiline",
+    "inputs": {
+      "string": "a knight in ornate dark armor standing in a candlelit stone hall, dramatic chiaroscuro lighting, painterly fantasy illustration",
+      "strip_newlines": true
+    }
+  },
+  "121": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ],
+      "filename_prefix": "ComfyUI"
+    },
+    "_meta": {
+      "output": true
+    }
+  },
+  "200": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": [
+        "96",
+        0
+      ],
+      "clip": [
+        "96",
+        1
+      ],
+      "lora_name": "my-loras/style-lora.safetensors",
+      "strength_model": 0.6,
+      "strength_clip": 0.6
+    }
+  }
+}

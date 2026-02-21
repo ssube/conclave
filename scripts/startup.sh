@@ -26,7 +26,23 @@ mkdir -p "$WORKSPACE"/logs/{nginx,synapse,postgres,planka,chromadb,ollama,neko,t
 chown -R dev:dev "$WORKSPACE/data/coding/"
 
 # ---------------------------------------------------------------
-# 3. First boot: generate secrets + init services
+# 3. Defaults for optional env vars (needed by init scripts)
+# ---------------------------------------------------------------
+export CONCLAVE_AGENT_USER="${CONCLAVE_AGENT_USER:-pi}"
+export MATRIX_SERVER_NAME="${MATRIX_SERVER_NAME:-conclave.local}"
+export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-localhost}"
+export NGINX_USER="${NGINX_USER:-admin}"
+export NGINX_PASSWORD="${NGINX_PASSWORD:?NGINX_PASSWORD must be set}"
+export TTYD_USER="${TTYD_USER:-admin}"
+export TTYD_PASSWORD="${TTYD_PASSWORD:-$NGINX_PASSWORD}"
+export NEKO_PASSWORD="${NEKO_PASSWORD:-neko}"
+export NEKO_ADMIN_PASSWORD="${NEKO_ADMIN_PASSWORD:-admin}"
+export PLANKA_ADMIN_EMAIL="${PLANKA_ADMIN_EMAIL:-admin@local}"
+export PLANKA_ADMIN_PASSWORD="${PLANKA_ADMIN_PASSWORD:-changeme}"
+export DEFAULT_OLLAMA_MODEL="${DEFAULT_OLLAMA_MODEL:-qwen3-coder:30b-a3b-q8_0}"
+
+# ---------------------------------------------------------------
+# 4. First boot: generate secrets + init services
 # ---------------------------------------------------------------
 if [ ! -f "$WORKSPACE/.initialized" ]; then
     echo "=== First boot detected ==="
@@ -66,22 +82,8 @@ SECRETS_EOF
 fi
 
 # ---------------------------------------------------------------
-# 4. Every boot: render config templates + setup
+# 5. Every boot: render config templates + setup
 # ---------------------------------------------------------------
-
-# Defaults for optional env vars
-export CONCLAVE_AGENT_USER="${CONCLAVE_AGENT_USER:-pi}"
-export MATRIX_SERVER_NAME="${MATRIX_SERVER_NAME:-conclave.local}"
-export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-localhost}"
-export NGINX_USER="${NGINX_USER:-admin}"
-export NGINX_PASSWORD="${NGINX_PASSWORD:?NGINX_PASSWORD must be set}"
-export TTYD_USER="${TTYD_USER:-admin}"
-export TTYD_PASSWORD="${TTYD_PASSWORD:-$NGINX_PASSWORD}"
-export NEKO_PASSWORD="${NEKO_PASSWORD:-neko}"
-export NEKO_ADMIN_PASSWORD="${NEKO_ADMIN_PASSWORD:-admin}"
-export PLANKA_ADMIN_EMAIL="${PLANKA_ADMIN_EMAIL:-admin@local}"
-export PLANKA_ADMIN_PASSWORD="${PLANKA_ADMIN_PASSWORD:-changeme}"
-export DEFAULT_OLLAMA_MODEL="${DEFAULT_OLLAMA_MODEL:-qwen3-coder:30b-a3b-q8_0}"
 
 # Update dev user password if provided
 if [ -n "${CONCLAVE_DEV_PASSWORD:-}" ]; then
@@ -168,7 +170,7 @@ rsync -a --ignore-existing /opt/conclave/pi/skills/ "$WORKSPACE/data/coding/.pi/
 rsync -a --ignore-existing /opt/conclave/pi/extensions/ "$WORKSPACE/data/coding/.pi/agent/extensions/" 2>/dev/null || true
 
 # Sync Claude Code skills
-rsync -a /opt/conclave/skills/claude-code/ "$WORKSPACE/data/coding/.claude/skills/" 2>/dev/null || true
+rsync -a /opt/conclave/pi/skills/launch-conclave/ "$WORKSPACE/data/coding/.claude/skills/launch-conclave/" 2>/dev/null || true
 
 # Copy pi-models.json and tmux.conf if not present (don't overwrite user edits)
 cp -n /opt/conclave/configs/coding/pi-models.json "$WORKSPACE/data/coding/.pi/agent/models.json" 2>/dev/null || true
@@ -197,12 +199,12 @@ cat > /opt/dashboard/env.json <<ENV_EOF
 ENV_EOF
 
 # ---------------------------------------------------------------
-# 5. Mark initialized
+# 6. Mark initialized
 # ---------------------------------------------------------------
 touch "$WORKSPACE/.initialized"
 
 # ---------------------------------------------------------------
-# 6. Export env vars needed by supervisord programs
+# 7. Export env vars needed by supervisord programs
 # ---------------------------------------------------------------
 export TTYD_USER TTYD_PASSWORD
 export NEKO_PASSWORD NEKO_ADMIN_PASSWORD
@@ -215,7 +217,7 @@ source "$WORKSPACE/config/chromadb/.env"
 set +a
 
 # ---------------------------------------------------------------
-# 7. Launch supervisord as PID 1
+# 8. Launch supervisord as PID 1
 # ---------------------------------------------------------------
 if [ "${CONCLAVE_SETUP_ONLY:-}" = "1" ]; then
     echo "=== Setup complete (CONCLAVE_SETUP_ONLY=1, skipping supervisord) ==="

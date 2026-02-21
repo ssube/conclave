@@ -10,15 +10,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY ansible/ /tmp/ansible/
 COPY configs/ /opt/conclave/configs/
 COPY dashboard/ /opt/dashboard/
-COPY skills/ /opt/conclave/skills-src/
+COPY pi/ /opt/conclave/pi/
 
 RUN cd /tmp/ansible && ansible-playbook -i inventory.yml playbook.yml
 
-# Clean up Ansible
+# Clean up Ansible (no autoremove — it can remove apt Python packages that pip depends on)
 RUN pip3 uninstall -y ansible ansible-core passlib && \
     rm -rf /tmp/ansible /root/.ansible && \
     apt-get purge -y software-properties-common && \
-    apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/*
 
 COPY scripts/ /opt/conclave/scripts/
 RUN chmod +x /opt/conclave/scripts/*.sh
