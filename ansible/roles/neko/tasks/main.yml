@@ -65,6 +65,23 @@
     version: "v{{ conclave_neko_version }}"
     depth: 1
 
+- name: Install N.eko client dependencies
+  command: npm install
+  args:
+    chdir: /tmp/neko-src/client
+
+- name: Build N.eko client
+  command: npm run build
+  args:
+    chdir: /tmp/neko-src/client
+
+- name: Install N.eko client to /opt/neko/www
+  shell: |
+    mkdir -p /opt/neko/www
+    cp -r /tmp/neko-src/client/dist/* /opt/neko/www/
+  args:
+    creates: /opt/neko/www/index.html
+
 - name: Build N.eko server binary
   command: go build -o /usr/local/bin/neko ./cmd/neko
   args:

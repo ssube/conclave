@@ -70,6 +70,19 @@
 
   <div class="service">
     <div class="service-header">
+      <span class="service-name"><a href="/terminal/" target="_blank">Terminal</a></span>
+      <span class="status status-pending" id="s-ttyd"></span>
+    </div>
+    <div class="service-desc">Web terminal (tmux workspace)</div>
+    <div class="service-links">
+      <a href="/terminal/">/terminal/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="7681">:7681</a>
+    </div>
+  </div>
+</div>
+
+  <div class="service">
+    <div class="service-header">
       <span class="service-name"><a href="/chromadb/" target="_blank">ChromaDB</a></span>
       <span class="status status-pending" id="s-chromadb"></span>
     </div>
@@ -80,7 +93,7 @@
     </div>
   </div>
 
-  <div class="service">
+  <!--div class="service">
     <div class="service-header">
       <span class="service-name"><a href="/chromadb-admin/" target="_blank">ChromaDB Admin</a></span>
       <span class="status status-pending" id="s-chromadb-admin"></span>
@@ -90,19 +103,7 @@
       <a href="/chromadb-admin/">/chromadb-admin/</a> <span class="sep">|</span>
       <a class="port-link" data-port="3100">:3100</a>
     </div>
-  </div>
-
-  <div class="service">
-    <div class="service-header">
-      <span class="service-name"><a href="/ollama/api/tags" target="_blank">Ollama</a></span>
-      <span class="status status-pending" id="s-ollama"></span>
-    </div>
-    <div class="service-desc">LLM inference (OpenAI-compatible API)</div>
-    <div class="service-links">
-      <a href="/ollama/">/ollama/</a> <span class="sep">|</span>
-      <a class="port-link" data-port="11434">:11434</a>
-    </div>
-  </div>
+  </div-->
 
   <div class="service">
     <div class="service-header">
@@ -118,16 +119,15 @@
 
   <div class="service">
     <div class="service-header">
-      <span class="service-name"><a href="/terminal/" target="_blank">Terminal</a></span>
-      <span class="status status-pending" id="s-ttyd"></span>
+      <span class="service-name"><a href="/ollama/api/tags" target="_blank">Ollama</a></span>
+      <span class="status status-pending" id="s-ollama"></span>
     </div>
-    <div class="service-desc">Web terminal (tmux workspace)</div>
+    <div class="service-desc">LLM inference (OpenAI-compatible API)</div>
     <div class="service-links">
-      <a href="/terminal/">/terminal/</a> <span class="sep">|</span>
-      <a class="port-link" data-port="7681">:7681</a>
+      <a href="/ollama/">/ollama/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="11434">:11434</a>
     </div>
   </div>
-</div>
 
 <h2>Port Reference</h2>
 <table>

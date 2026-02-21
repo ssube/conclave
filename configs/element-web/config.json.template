@@ -1,7 +1,7 @@
 {
     "default_server_config": {
         "m.homeserver": {
-            "base_url": "https://${EXTERNAL_HOSTNAME}",
+            "base_url": "${CONCLAVE_BASE_URL}",
             "server_name": "${MATRIX_SERVER_NAME}"
         }
     },

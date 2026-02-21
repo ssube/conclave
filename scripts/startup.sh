@@ -31,6 +31,7 @@ chown -R dev:dev "$WORKSPACE/data/coding/"
 export CONCLAVE_AGENT_USER="${CONCLAVE_AGENT_USER:-pi}"
 export MATRIX_SERVER_NAME="${MATRIX_SERVER_NAME:-conclave.local}"
 export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-localhost}"
+export CONCLAVE_BASE_URL="${CONCLAVE_BASE_URL:-http://${EXTERNAL_HOSTNAME}:8888}"
 export NGINX_USER="${NGINX_USER:-admin}"
 export NGINX_PASSWORD="${NGINX_PASSWORD:?NGINX_PASSWORD must be set}"
 export TTYD_USER="${TTYD_USER:-admin}"
@@ -108,8 +109,9 @@ cp /opt/conclave/configs/nginx/nginx.conf.template "$WORKSPACE/config/nginx/ngin
 # Generate htpasswd
 htpasswd -bc "$WORKSPACE/config/nginx/htpasswd" "$NGINX_USER" "$NGINX_PASSWORD" 2>/dev/null
 
-# Render Element Web config
+# Render Element Web config and symlink into app directory
 envsubst < /opt/conclave/configs/element-web/config.json.template > "$WORKSPACE/config/element-web/config.json"
+ln -sf "$WORKSPACE/config/element-web/config.json" /opt/element-web/config.json
 
 # Write Planka env and symlink into app directory (dotenv loads from cwd)
 cat > "$WORKSPACE/config/planka/.env" <<PLANKA_EOF
