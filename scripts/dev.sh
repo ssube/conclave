@@ -3,10 +3,12 @@
 # Compatible with docker, podman, and nerdctl.
 #
 # Usage:
-#   bash scripts/dev.sh              # build and run
+#   bash scripts/dev.sh              # build, run, and test
 #   bash scripts/dev.sh build        # build only
 #   bash scripts/dev.sh run          # run only (image must exist)
+#   bash scripts/dev.sh test         # run browser tests (container must be running)
 #   bash scripts/dev.sh stop         # stop running container
+#   bash scripts/dev.sh clean        # stop container and remove volume
 #   bash scripts/dev.sh logs         # tail container logs
 #
 # Override the container runtime with CONTAINER_RUNTIME=podman, etc.
@@ -99,6 +101,27 @@ do_run() {
         sleep 2
     done
 
+    # Wait for user/resource creation to finish (Planka project, Matrix room)
+    echo "Waiting for user and resource creation..."
+    for _i in $(seq 1 60); do
+        if "$CTR" exec "$CONTAINER" grep -q "User and resource creation complete" /workspace/logs/create-users.log 2>/dev/null; then
+            echo "First-boot setup complete."
+            break
+        fi
+        sleep 2
+    done
+
+    # Run browser end-to-end tests if playwright is available
+    if [ -f "$REPO_DIR/scripts/test-browser-final.mjs" ] && command -v node &>/dev/null; then
+        echo ""
+        echo "=== Running browser tests ==="
+        if node "$REPO_DIR/scripts/test-browser-final.mjs"; then
+            echo "=== All browser tests passed ==="
+        else
+            echo "WARNING: Some browser tests failed (see output above)."
+        fi
+    fi
+
     MATRIX_PASS=$("$CTR" exec "$CONTAINER" sh -c 'grep ADMIN_MATRIX_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2' 2>/dev/null || true)
     if [ -n "$MATRIX_PASS" ]; then
         echo ""
@@ -111,9 +134,26 @@ do_run() {
     fi
 }
 
+do_test() {
+    if [ -f "$REPO_DIR/scripts/test-browser-final.mjs" ] && command -v node &>/dev/null; then
+        echo "=== Running browser tests ==="
+        node "$REPO_DIR/scripts/test-browser-final.mjs"
+    else
+        echo "ERROR: playwright test script not found or node not available." >&2
+        exit 1
+    fi
+}
+
 do_stop() {
     echo "=== Stopping $CONTAINER ==="
     "$CTR" stop "$CONTAINER" 2>/dev/null && "$CTR" rm "$CONTAINER" 2>/dev/null || echo "Container not running"
+}
+
+do_clean() {
+    echo "=== Cleaning up $CONTAINER ==="
+    "$CTR" stop "$CONTAINER" 2>/dev/null && "$CTR" rm "$CONTAINER" 2>/dev/null || true
+    "$CTR" volume rm "$WORKSPACE_VOL" 2>/dev/null || true
+    echo "Container and volume removed."
 }
 
 do_logs() {
@@ -123,8 +163,10 @@ do_logs() {
 case "${1:-}" in
     build) do_build ;;
     run)   do_run ;;
+    test)  do_test ;;
     stop)  do_stop ;;
+    clean) do_clean ;;
     logs)  do_logs ;;
     "")    do_build && do_run ;;
-    *)     echo "Usage: $0 [build|run|stop|logs]"; exit 1 ;;
+    *)     echo "Usage: $0 [build|run|test|stop|clean|logs]"; exit 1 ;;
 esac
