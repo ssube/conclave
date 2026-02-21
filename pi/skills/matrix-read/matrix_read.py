@@ -29,13 +29,42 @@ BOT_USERS = {
 
 # ─── Matrix API Helpers ─────────────────────────────────────────────────────
 
+_cached_token = None
+
+def _login_for_token(homeserver):
+    """Login with AGENT_MATRIX_USER/PASSWORD to get an access token."""
+    user = os.environ.get("AGENT_MATRIX_USER", "")
+    password = os.environ.get("AGENT_MATRIX_PASSWORD", "")
+    if not user or not password:
+        return ""
+    payload = json.dumps({"type": "m.login.password", "user": user, "password": password}).encode()
+    req = urllib.request.Request(
+        f"{homeserver}/_matrix/client/v3/login",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            return data.get("access_token", "")
+    except Exception:
+        return ""
+
 def matrix_get(path, params=None):
     """Make an authenticated GET request to the Matrix API."""
+    global _cached_token
     homeserver = os.environ.get("MATRIX_HOMESERVER_URL", os.environ.get("AGENT_MATRIX_URL", "http://127.0.0.1:8008")).rstrip("/")
-    token = os.environ.get("MATRIX_ACCESS_TOKEN", "")
-    
+    token = os.environ.get("MATRIX_ACCESS_TOKEN", "") or _cached_token or ""
+
+    # Auto-login if no token available
+    if not token:
+        token = _login_for_token(homeserver)
+        if token:
+            _cached_token = token
+
     if not homeserver or not token:
-        print("ERROR: MATRIX_HOMESERVER_URL and MATRIX_ACCESS_TOKEN must be set", file=sys.stderr)
+        print("ERROR: No Matrix credentials available. Set MATRIX_ACCESS_TOKEN or AGENT_MATRIX_USER/PASSWORD", file=sys.stderr)
         sys.exit(1)
     
     url = f"{homeserver}{path}"

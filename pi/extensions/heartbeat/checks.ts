@@ -79,17 +79,19 @@ export function checkMatrixMessages(exec: ExecFn, sinceMinutes: number, priority
 	return timed("Matrix", async () => {
 		const watermarks = readWatermarks();
 
-		// Try to read messages via the matrix-read skill (path configurable via env)
+		// Source agent-env.sh to get latest credentials (token may be appended
+		// after the pi process started, due to create-users.sh race)
+		const envSource = "[ -f /workspace/config/agent-env.sh ] && . /workspace/config/agent-env.sh;";
 		const matrixReadPath = process.env.MATRIX_READ_SKILL_PATH || "./skills/matrix-read";
 		const { stdout, ok } = await exec(
-			`cd ${matrixReadPath} && ` +
+			`${envSource} cd ${matrixReadPath} && ` +
 			`python3 matrix_read.py --all --since ${sinceMinutes} --json 2>/dev/null`
 		);
 
 		if (!ok || !stdout) {
 			// Connectivity check
 			const { ok: whoamiOk } = await exec(
-				`curl -sf --max-time 5 ` +
+				`${envSource} curl -sf --max-time 5 ` +
 				`-H "Authorization: Bearer $MATRIX_ACCESS_TOKEN" ` +
 				`"$MATRIX_HOMESERVER_URL/_matrix/client/v3/account/whoami" 2>/dev/null`
 			);
