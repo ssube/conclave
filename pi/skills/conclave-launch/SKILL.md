@@ -1,5 +1,5 @@
 ---
-name: launch-conclave
+name: conclave-launch
 description: >-
   Launch a Conclave workspace on Runpod. Use when the user wants to start a new
   GPU pod with the full Conclave environment (Matrix, Planka, Ollama, browser,

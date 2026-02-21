@@ -187,7 +187,7 @@ rsync -a --ignore-existing /opt/conclave/pi/skills/ "$WORKSPACE/data/coding/.pi/
 rsync -a --ignore-existing /opt/conclave/pi/extensions/ "$WORKSPACE/data/coding/.pi/agent/extensions/" 2>/dev/null || true
 
 # Sync Claude Code skills
-rsync -a /opt/conclave/pi/skills/launch-conclave/ "$WORKSPACE/data/coding/.claude/skills/launch-conclave/" 2>/dev/null || true
+rsync -a /opt/conclave/pi/skills/conclave-launch/ "$WORKSPACE/data/coding/.claude/skills/conclave-launch/" 2>/dev/null || true
 
 # Copy pi-models.json and tmux.conf if not present (don't overwrite user edits)
 cp -n /opt/conclave/configs/coding/pi-models.json "$WORKSPACE/data/coding/.pi/agent/models.json" 2>/dev/null || true
