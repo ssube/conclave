@@ -54,6 +54,24 @@ register_new_matrix_user \
     http://127.0.0.1:8008 2>&1 || echo "Matrix agent user may already exist (this is OK)."
 
 # ---------------------------------------------------------------
+# Get Matrix agent access token and append to agent-env.sh
+# ---------------------------------------------------------------
+AGENT_ENV_FILE="/workspace/config/agent-env.sh"
+if ! grep -q MATRIX_ACCESS_TOKEN "$AGENT_ENV_FILE" 2>/dev/null; then
+    echo "Obtaining Matrix access token for agent..."
+    MATRIX_ACCESS_TOKEN=$(curl -s http://127.0.0.1:8008/_matrix/client/v3/login \
+        -X POST -H 'Content-Type: application/json' \
+        -d "{\"type\":\"m.login.password\",\"user\":\"${CONCLAVE_AGENT_USER}\",\"password\":\"${CONCLAVE_AGENT_PASSWORD}\"}" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || true)
+    if [ -n "$MATRIX_ACCESS_TOKEN" ]; then
+        echo "MATRIX_ACCESS_TOKEN=${MATRIX_ACCESS_TOKEN}" >> "$AGENT_ENV_FILE"
+        echo "Matrix agent access token saved."
+    else
+        echo "WARNING: Could not obtain Matrix agent access token."
+    fi
+fi
+
+# ---------------------------------------------------------------
 # Wait for Planka
 # ---------------------------------------------------------------
 echo "Waiting for Planka..."
