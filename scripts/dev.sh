@@ -10,6 +10,7 @@
 #   bash scripts/dev.sh stop         # stop running container
 #   bash scripts/dev.sh clean        # stop container and remove volume
 #   bash scripts/dev.sh logs         # tail container logs
+#   bash scripts/dev.sh creds        # print admin and agent passwords
 #
 # Override the container runtime with CONTAINER_RUNTIME=podman, etc.
 set -euo pipefail
@@ -152,6 +153,18 @@ do_logs() {
     "$CTR" logs -f "$CONTAINER"
 }
 
+do_creds() {
+    ADMIN_PASS=$("$CTR" exec "$CONTAINER" sh -c 'grep CONCLAVE_ADMIN_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2' 2>/dev/null || true)
+    AGENT_PASS=$("$CTR" exec "$CONTAINER" sh -c 'grep CONCLAVE_AGENT_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2' 2>/dev/null || true)
+    if [ -n "$ADMIN_PASS" ]; then
+        echo "Admin password:   $ADMIN_PASS  (nginx, Matrix, Planka, Neko, ttyd, dev SSH)"
+        echo "Agent password:   $AGENT_PASS  (Matrix agent, Planka agent)"
+    else
+        echo "ERROR: Could not read credentials. Is the container running?" >&2
+        exit 1
+    fi
+}
+
 case "${1:-}" in
     build) do_build ;;
     run)   do_run ;;
@@ -159,6 +172,7 @@ case "${1:-}" in
     stop)  do_stop ;;
     clean) do_clean ;;
     logs)  do_logs ;;
+    creds) do_creds ;;
     "")    do_build && do_run ;;
-    *)     echo "Usage: $0 [build|run|test|stop|clean|logs]"; exit 1 ;;
+    *)     echo "Usage: $0 [build|run|test|stop|clean|logs|creds]"; exit 1 ;;
 esac
