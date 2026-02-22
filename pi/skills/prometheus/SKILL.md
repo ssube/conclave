@@ -10,12 +10,12 @@ Push metrics to the Prometheus Pushgateway via curl. No script required.
 
 ## Environment
 
-- `PROMETHEUS_PUSHGATEWAY_URL` — Pushgateway base URL (required)
+- `AGENT_PUSHGATEWAY_URL` — Pushgateway base URL (set automatically by Conclave when the local Pushgateway is enabled)
 
 ## Push a Single Metric
 
 ```bash
-cat <<EOF | curl -sf --data-binary @- "${PROMETHEUS_PUSHGATEWAY_URL}/metrics/job/agent/instance/$(hostname)"
+cat <<EOF | curl -sf --data-binary @- "${AGENT_PUSHGATEWAY_URL}/metrics/job/agent/instance/$(hostname)"
 # TYPE tasks_completed_total gauge
 tasks_completed_total{category="bugs"} 12
 EOF
@@ -24,7 +24,7 @@ EOF
 ## Push Multiple Metrics
 
 ```bash
-cat <<EOF | curl -sf --data-binary @- "${PROMETHEUS_PUSHGATEWAY_URL}/metrics/job/agent/instance/$(hostname)"
+cat <<EOF | curl -sf --data-binary @- "${AGENT_PUSHGATEWAY_URL}/metrics/job/agent/instance/$(hostname)"
 # TYPE tasks_completed_total gauge
 tasks_completed_total{category="bugs"} 12
 tasks_completed_total{category="features"} 5
@@ -37,13 +37,13 @@ EOF
 ## Delete Metrics for a Job
 
 ```bash
-curl -sf -X DELETE "${PROMETHEUS_PUSHGATEWAY_URL}/metrics/job/agent/instance/$(hostname)"
+curl -sf -X DELETE "${AGENT_PUSHGATEWAY_URL}/metrics/job/agent/instance/$(hostname)"
 ```
 
 ## List Existing Jobs
 
 ```bash
-curl -sf "${PROMETHEUS_PUSHGATEWAY_URL}/api/v1/metrics" | python3 -m json.tool
+curl -sf "${AGENT_PUSHGATEWAY_URL}/api/v1/metrics" | python3 -m json.tool
 ```
 
 ## Metric Naming Conventions

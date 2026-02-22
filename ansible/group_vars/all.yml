@@ -10,6 +10,8 @@ conclave_neko_enabled: true
 conclave_coding_agents_enabled: true
 conclave_ttyd_enabled: true
 conclave_nginx_enabled: true
+conclave_pushgateway_enabled: true
+conclave_cron_enabled: true
 conclave_ssh_enabled: true
 conclave_fail2ban_enabled: true
 
@@ -30,6 +32,7 @@ conclave_element_web_version: "1.11.96"
 conclave_planka_version: "2.0.1"
 conclave_ollama_version: "0.16.3"
 conclave_neko_version: "2.8.0"
+conclave_pushgateway_version: "1.11.0"
 conclave_ttyd_version: "1.7.7"
 
 # Ports
@@ -44,4 +47,5 @@ conclave_neko_port: 8080
 conclave_ttyd_port: 7681
 conclave_ssh_port: 22
 conclave_neko_webrtc_range: "52000-52100"
+conclave_pushgateway_port: 9091
 conclave_chromium_cdp_port: 9222

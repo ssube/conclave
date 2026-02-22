@@ -1,0 +1,10 @@
+---
+- name: Install cron
+  apt:
+    name: cron
+    state: present
+
+- name: Verify cron is installed
+  command: cron -V
+  changed_when: false
+  ignore_errors: true

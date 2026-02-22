@@ -135,6 +135,7 @@ else
     check_http ttyd "http://127.0.0.1:7681/"
 fi
 check_service neko     "http://127.0.0.1:8080/"
+check_service pushgateway "http://127.0.0.1:9091/-/healthy"
 
 # ── 3. Browser (CDP) ────────────────────────────────────────────────────────
 
@@ -170,7 +171,7 @@ fi
 
 # ── Output ───────────────────────────────────────────────────────────────────
 
-SERVICE_ORDER=(postgres nginx synapse chromadb ollama planka ttyd neko chromium-cdp disk)
+SERVICE_ORDER=(postgres nginx synapse chromadb ollama planka ttyd neko pushgateway chromium-cdp disk)
 
 if $JSON_MODE; then
     echo "{"

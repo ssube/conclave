@@ -17,7 +17,8 @@ RUN cd /tmp/ansible && ansible-playbook -i inventory.yml playbook.yml \
     -e conclave_synapse_enabled=false \
     -e conclave_element_web_enabled=false \
     -e conclave_planka_enabled=false \
-    -e conclave_ollama_enabled=false
+    -e conclave_ollama_enabled=false \
+    -e conclave_pushgateway_enabled=false
 
 # Clean up Ansible (no autoremove — it can remove apt Python packages that pip depends on)
 RUN pip3 uninstall -y ansible ansible-core passlib && \
@@ -37,7 +38,8 @@ ENV CONCLAVE_POSTGRES_ENABLED=false \
     CONCLAVE_SYNAPSE_ENABLED=false \
     CONCLAVE_ELEMENT_WEB_ENABLED=false \
     CONCLAVE_PLANKA_ENABLED=false \
-    CONCLAVE_OLLAMA_ENABLED=false
+    CONCLAVE_OLLAMA_ENABLED=false \
+    CONCLAVE_PUSHGATEWAY_ENABLED=false
 
 HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
     CMD /opt/conclave/scripts/healthcheck.sh

@@ -128,6 +128,18 @@
       <a class="port-link" data-port="11434">:11434</a>
     </div>
   </div>
+
+  <div class="service" data-service="pushgateway">
+    <div class="service-header">
+      <span class="service-name"><a href="/pushgateway/" target="_blank">Pushgateway</a></span>
+      <span class="status status-pending" id="s-pushgateway"></span>
+    </div>
+    <div class="service-desc">Prometheus Pushgateway for metrics</div>
+    <div class="service-links">
+      <a href="/pushgateway/">/pushgateway/</a> <span class="sep">|</span>
+      <a class="port-link" data-port="9091">:9091</a>
+    </div>
+  </div>
 </div>
 
 <h2>Port Reference</h2>
@@ -144,6 +156,7 @@
     <tr><td>8000</td><td>ChromaDB</td><td>Fallback</td></tr>
     <!--tr><td>3100</td><td>ChromaDB Admin</td><td>Fallback</td></tr-->
     <tr data-service="ollama"><td>11434</td><td>Ollama</td><td>Fallback</td></tr>
+    <tr data-service="pushgateway"><td>9091</td><td>Pushgateway</td><td>Fallback</td></tr>
     <tr><td>8080</td><td>N.eko</td><td>Fallback</td></tr>
     <tr><td>7681</td><td>ttyd</td><td>Fallback</td></tr>
     <tr><td>9222</td><td>Chromium CDP</td><td>Internal only</td></tr>
@@ -206,6 +219,7 @@ async function checkHealth() {
     { id: 's-chromadb',       url: '/chromadb/api/v2/heartbeat' },
     { id: 's-chromadb-admin', url: '/chromadb-admin/' },
     { id: 's-ollama',         url: '/ollama/api/tags',         service: 'ollama' },
+    { id: 's-pushgateway',   url: '/pushgateway/',            service: 'pushgateway' },
     { id: 's-neko',           url: '/neko/' },
     { id: 's-ttyd',           url: '/terminal/' },
   ];

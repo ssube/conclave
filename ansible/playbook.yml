@@ -32,6 +32,12 @@
     - role: ttyd
       when: conclave_ttyd_enabled | default(true) | bool
 
+    - role: pushgateway
+      when: conclave_pushgateway_enabled | default(true) | bool
+
+    - role: cron
+      when: conclave_cron_enabled | default(true) | bool
+
     - role: nginx
       when: conclave_nginx_enabled | default(true) | bool
 

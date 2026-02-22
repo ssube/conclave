@@ -124,6 +124,15 @@ http {
             proxy_send_timeout 86400s;
         }
 
+        # --- Prometheus Pushgateway ---
+        location /pushgateway/ {
+            auth_basic "Pushgateway";
+            auth_basic_user_file /workspace/config/nginx/htpasswd;
+            proxy_pass http://127.0.0.1:9091/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
         # --- ttyd Terminal ---
         location /terminal/ {
             proxy_pass http://127.0.0.1:7681/;

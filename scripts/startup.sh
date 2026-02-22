@@ -18,9 +18,9 @@ fi
 # 2. Create directory tree (idempotent)
 # ---------------------------------------------------------------
 mkdir -p "$WORKSPACE"/{config,data,logs}
-mkdir -p "$WORKSPACE"/config/{nginx,synapse,element-web,planka,chromadb,neko,ssh}
+mkdir -p "$WORKSPACE"/config/{nginx,synapse,element-web,planka,chromadb,neko,ssh,cron}
 mkdir -p "$WORKSPACE"/data/{synapse/media_store,postgres,planka,chromadb,ollama/models,neko/chromium-profile,coding/.pi/agent/{skills,prompts,extensions,themes},coding/.claude/skills,coding/projects}
-mkdir -p "$WORKSPACE"/logs/{nginx,synapse,postgres,planka,chromadb,ollama,neko,ttyd}
+mkdir -p "$WORKSPACE"/logs/{nginx,synapse,postgres,planka,chromadb,ollama,neko,ttyd,pushgateway,cron}
 
 # Ensure dev user owns coding workspace
 chown -R dev:dev "$WORKSPACE/data/coding/"
@@ -29,7 +29,16 @@ chown -R dev:dev "$WORKSPACE/data/coding/"
 # 3. Defaults for optional env vars (needed by init scripts)
 # ---------------------------------------------------------------
 
+# Timezone
+export TZ="${TZ:-UTC}"
+if [ -f "/usr/share/zoneinfo/$TZ" ]; then
+    ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
+    echo "$TZ" > /etc/timezone
+fi
+
 # Service enablement flags (default true for backward compat with full image)
+export CONCLAVE_PUSHGATEWAY_ENABLED="${CONCLAVE_PUSHGATEWAY_ENABLED:-true}"
+export CONCLAVE_CRON_ENABLED="${CONCLAVE_CRON_ENABLED:-true}"
 export CONCLAVE_POSTGRES_ENABLED="${CONCLAVE_POSTGRES_ENABLED:-true}"
 export CONCLAVE_SYNAPSE_ENABLED="${CONCLAVE_SYNAPSE_ENABLED:-true}"
 export CONCLAVE_ELEMENT_WEB_ENABLED="${CONCLAVE_ELEMENT_WEB_ENABLED:-true}"
@@ -184,6 +193,11 @@ if [ "$CONCLAVE_OLLAMA_ENABLED" = "true" ]; then
 else
     _AGENT_OLLAMA_URL="${EXTERNAL_OLLAMA_URL:-}"
 fi
+if [ "$CONCLAVE_PUSHGATEWAY_ENABLED" = "true" ]; then
+    _AGENT_PUSHGATEWAY_URL="http://127.0.0.1:9091"
+else
+    _AGENT_PUSHGATEWAY_URL="${EXTERNAL_PUSHGATEWAY_URL:-}"
+fi
 
 # Write agent credentials env file (for coding agents in tmux)
 AGENT_ENV_FILE="$WORKSPACE/config/agent-env.sh"
@@ -201,6 +215,7 @@ AGENT_NEKO_PASSWORD=${CONCLAVE_ADMIN_PASSWORD}
 AGENT_CHROMADB_TOKEN=${CHROMADB_TOKEN}
 AGENT_CHROMADB_URL=http://127.0.0.1:8000
 AGENT_OLLAMA_URL=${_AGENT_OLLAMA_URL}
+AGENT_PUSHGATEWAY_URL=${_AGENT_PUSHGATEWAY_URL}
 MATRIX_HOMESERVER_URL=${_MATRIX_HOMESERVER_URL}
 MATRIX_SERVER_NAME=${MATRIX_SERVER_NAME}
 MATRIX_READ_SKILL_PATH=/workspace/data/coding/.pi/agent/skills/matrix-read
@@ -239,6 +254,11 @@ cp -n /opt/conclave/configs/coding/cron.tab "$WORKSPACE/data/coding/projects/.pi
 # Re-chown coding dir after syncing assets (rsync/cp run as root)
 chown -R dev:dev "$WORKSPACE/data/coding/"
 
+# Install user crontab from persistent volume if present
+if [ "$CONCLAVE_CRON_ENABLED" = "true" ] && [ -f "$WORKSPACE/config/cron/crontab" ]; then
+    crontab -u dev "$WORKSPACE/config/cron/crontab"
+fi
+
 # Generate dashboard env.json
 cat > /opt/dashboard/env.json <<ENV_EOF
 {
@@ -251,6 +271,7 @@ cat > /opt/dashboard/env.json <<ENV_EOF
         "planka": ${CONCLAVE_PLANKA_ENABLED},
         "chromadb": true,
         "ollama": ${CONCLAVE_OLLAMA_ENABLED},
+        "pushgateway": ${CONCLAVE_PUSHGATEWAY_ENABLED},
         "neko": true,
         "ttyd": true,
         "ssh": true
@@ -281,6 +302,8 @@ SUPERVISOR_OPTIONAL_DIR="/opt/conclave/configs/supervisor.d"
 [ "$CONCLAVE_SYNAPSE_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/synapse.conf" "$SUPERVISOR_SERVICES_DIR/"
 [ "$CONCLAVE_PLANKA_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/planka.conf" "$SUPERVISOR_SERVICES_DIR/"
 [ "$CONCLAVE_OLLAMA_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/ollama.conf" "$SUPERVISOR_SERVICES_DIR/"
+[ "$CONCLAVE_PUSHGATEWAY_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/pushgateway.conf" "$SUPERVISOR_SERVICES_DIR/"
+[ "$CONCLAVE_CRON_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/cron.conf" "$SUPERVISOR_SERVICES_DIR/"
 if [ "$CONCLAVE_SYNAPSE_ENABLED" = "true" ] || [ "$CONCLAVE_PLANKA_ENABLED" = "true" ]; then
     cp "$SUPERVISOR_OPTIONAL_DIR/create-users.conf" "$SUPERVISOR_SERVICES_DIR/"
 fi

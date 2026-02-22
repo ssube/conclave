@@ -1,0 +1,39 @@
+---
+- name: Check if pushgateway is already installed
+  stat:
+    path: /usr/local/bin/pushgateway
+  register: pushgateway_binary
+
+- name: Download Pushgateway
+  get_url:
+    url: "https://github.com/prometheus/pushgateway/releases/download/v{{ conclave_pushgateway_version }}/pushgateway-{{ conclave_pushgateway_version }}.linux-amd64.tar.gz"
+    dest: /tmp/pushgateway.tar.gz
+  when: not pushgateway_binary.stat.exists
+
+- name: Extract Pushgateway
+  unarchive:
+    src: /tmp/pushgateway.tar.gz
+    dest: /tmp
+    remote_src: true
+  when: not pushgateway_binary.stat.exists
+
+- name: Install Pushgateway binary
+  copy:
+    src: "/tmp/pushgateway-{{ conclave_pushgateway_version }}.linux-amd64/pushgateway"
+    dest: /usr/local/bin/pushgateway
+    mode: '0755'
+    remote_src: true
+  when: not pushgateway_binary.stat.exists
+
+- name: Clean up Pushgateway archive
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/pushgateway.tar.gz
+    - "/tmp/pushgateway-{{ conclave_pushgateway_version }}.linux-amd64"
+  when: not pushgateway_binary.stat.exists
+
+- name: Verify Pushgateway is installed
+  command: /usr/local/bin/pushgateway --version
+  changed_when: false

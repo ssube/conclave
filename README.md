@@ -15,8 +15,10 @@ A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a k
 | ChromaDB Admin | 3100 | `/chromadb-admin/` | Vector database browser |
 | Ollama | 11434 | `/ollama/` | LLM inference (OpenAI-compatible API) |
 | N.eko | 8080 | `/neko/` | WebRTC remote browser session (TCPMUX on 8081) |
+| Pushgateway | 9091 | `/pushgateway/` | Prometheus Pushgateway for metrics |
 | Chromium CDP | 9222 | — | Browser automation (internal) |
 | ttyd | 7681 | `/terminal/` | Web terminal (tmux) |
+| cron | — | — | System cron daemon (reads `/workspace/config/cron/crontab`) |
 | SSH | 22 | — | Shell access as `dev` user |
 
 ## Quick Start
@@ -80,6 +82,9 @@ Other options: `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatab
 | `SSH_AUTHORIZED_KEYS` | No | — | SSH public keys (newline-separated) |
 | `CONCLAVE_DEV_PASSWORD` | No | `$CONCLAVE_ADMIN_PASSWORD` | Password for `dev` user (updated on each boot) |
 | `CONCLAVE_AGENT_USER` | No | `pi` | Username for the agent user in Matrix and Planka |
+| `TZ` | No | `UTC` | Container timezone (e.g. `America/New_York`) |
+| `CONCLAVE_PUSHGATEWAY_ENABLED` | No | `true` | Enable Prometheus Pushgateway |
+| `CONCLAVE_CRON_ENABLED` | No | `true` | Enable cron daemon (reads `/workspace/config/cron/crontab`) |
 | `CONCLAVE_SETUP_ONLY` | No | — | Set to `1` to run setup and exit (for testing) |
 
 `CONCLAVE_ADMIN_PASSWORD` and `CONCLAVE_AGENT_PASSWORD` are auto-generated on first boot if not provided. Database passwords (`SYNAPSE_DB_PASSWORD`, `PLANKA_DB_PASSWORD`), `PLANKA_SECRET_KEY`, and `CHROMADB_TOKEN` are also auto-generated. All secrets are saved to `/workspace/config/generated-secrets.env`.
@@ -140,6 +145,7 @@ Available environment variables in the tmux session:
 | `AGENT_CHROMADB_TOKEN` | ChromaDB auth token |
 | `AGENT_CHROMADB_URL` | ChromaDB API URL |
 | `AGENT_OLLAMA_URL` | Ollama API URL |
+| `AGENT_PUSHGATEWAY_URL` | Prometheus Pushgateway URL |
 
 A Matrix admin user (`admin`) and a Planka admin user are also created automatically (see `scripts/create-users.sh`).
 
