@@ -1,0 +1,45 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip software-properties-common && \
+    pip3 install ansible passlib && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY ansible/ /tmp/ansible/
+COPY configs/ /opt/conclave/configs/
+COPY dashboard/ /opt/dashboard/
+COPY pi/ /opt/conclave/pi/
+
+RUN cd /tmp/ansible && ansible-playbook -i inventory.yml playbook.yml \
+    -e conclave_postgres_enabled=false \
+    -e conclave_synapse_enabled=false \
+    -e conclave_element_web_enabled=false \
+    -e conclave_planka_enabled=false \
+    -e conclave_ollama_enabled=false
+
+# Clean up Ansible (no autoremove — it can remove apt Python packages that pip depends on)
+RUN pip3 uninstall -y ansible ansible-core passlib && \
+    rm -rf /tmp/ansible /root/.ansible && \
+    apt-get purge -y software-properties-common && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY scripts/ /opt/conclave/scripts/
+RUN chmod +x /opt/conclave/scripts/*.sh
+
+# Disabled services: Matrix (8008), Planka (1337), Ollama (11434)
+# Kept: nginx (8888), SSH (22), ChromaDB (8000, 3100), N.eko (8080, 8081), ttyd (7681)
+EXPOSE 8888 22 8000 3100 8080 8081 7681
+
+# Default service flags for this image (can be overridden at runtime)
+ENV CONCLAVE_POSTGRES_ENABLED=false \
+    CONCLAVE_SYNAPSE_ENABLED=false \
+    CONCLAVE_ELEMENT_WEB_ENABLED=false \
+    CONCLAVE_PLANKA_ENABLED=false \
+    CONCLAVE_OLLAMA_ENABLED=false
+
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+    CMD /opt/conclave/scripts/healthcheck.sh
+
+ENTRYPOINT ["/opt/conclave/scripts/startup.sh"]

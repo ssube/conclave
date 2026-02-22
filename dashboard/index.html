@@ -12,6 +12,7 @@
   .subtitle { color: #8b949e; margin-bottom: 2rem; }
   .services { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
   .service { background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 1rem; }
+  .service.hidden { display: none; }
   .service-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
   .service-name { font-weight: 600; color: #c9d1d9; }
   .service-name a { color: #58a6ff; text-decoration: none; }
@@ -43,7 +44,7 @@
 
 <h2>Services</h2>
 <div class="services" id="services">
-  <div class="service">
+  <div class="service" data-service="synapse">
     <div class="service-header">
       <span class="service-name"><a href="/element/" target="_blank">Matrix</a></span>
       <span class="status status-pending" id="s-synapse"></span>
@@ -56,7 +57,7 @@
     </div>
   </div>
 
-  <div class="service">
+  <div class="service" data-service="planka">
     <div class="service-header">
       <span class="service-name"><a class="port-link" data-port="1337" target="_blank">Planka</a></span>
       <span class="status status-pending" id="s-planka"></span>
@@ -116,7 +117,7 @@
     </div>
   </div>
 
-  <div class="service">
+  <div class="service" data-service="ollama">
     <div class="service-header">
       <span class="service-name"><a href="/ollama/api/tags" target="_blank">Ollama</a></span>
       <span class="status status-pending" id="s-ollama"></span>
@@ -137,12 +138,12 @@
   <tbody>
     <tr><td>8888</td><td>nginx (unified entry)</td><td>Primary</td></tr>
     <tr><td>22</td><td>SSH</td><td>Direct</td></tr>
-    <tr><td>8008</td><td>Synapse</td><td>Fallback</td></tr>
-    <tr><td>1337</td><td>Planka</td><td>Fallback</td></tr>
-    <tr><td>5432</td><td>PostgreSQL</td><td>Internal only</td></tr>
+    <tr data-service="synapse"><td>8008</td><td>Synapse</td><td>Fallback</td></tr>
+    <tr data-service="planka"><td>1337</td><td>Planka</td><td>Fallback</td></tr>
+    <tr data-service="postgres"><td>5432</td><td>PostgreSQL</td><td>Internal only</td></tr>
     <tr><td>8000</td><td>ChromaDB</td><td>Fallback</td></tr>
     <!--tr><td>3100</td><td>ChromaDB Admin</td><td>Fallback</td></tr-->
-    <tr><td>11434</td><td>Ollama</td><td>Fallback</td></tr>
+    <tr data-service="ollama"><td>11434</td><td>Ollama</td><td>Fallback</td></tr>
     <tr><td>8080</td><td>N.eko</td><td>Fallback</td></tr>
     <tr><td>7681</td><td>ttyd</td><td>Fallback</td></tr>
     <tr><td>9222</td><td>Chromium CDP</td><td>Internal only</td></tr>
@@ -154,8 +155,8 @@
 <div class="guide">
   <ol>
     <li>Open <a href="/terminal/" style="color:#58a6ff">Terminal</a> to access the tmux workspace</li>
-    <li>Log into <a href="/element/" style="color:#58a6ff">Element</a> — admin and agent users are created automatically on first boot</li>
-    <li>Open <a href="/planka/" style="color:#58a6ff">Planka</a> and log in with admin credentials</li>
+    <li data-service="synapse">Log into <a href="/element/" style="color:#58a6ff">Element</a> — admin and agent users are created automatically on first boot</li>
+    <li data-service="planka">Open <a href="/planka/" style="color:#58a6ff">Planka</a> and log in with admin credentials</li>
     <li>Configure pi: edit <code>/workspace/data/coding/.pi/agent/SYSTEM.md</code></li>
     <li>Set API keys in the terminal:
       <br><code>export ANTHROPIC_API_KEY=sk-ant-...</code></li>
@@ -172,18 +173,47 @@ document.querySelectorAll('.port-link').forEach(function(el) {
   el.href = location.protocol + '//' + location.hostname + ':' + port + '/';
 });
 
+// Service visibility and health check state
+var enabledServices = null;
+
+async function loadEnv() {
+  try {
+    const resp = await fetch('/env.json');
+    if (!resp.ok) return;
+    const env = await resp.json();
+
+    // Update footer info
+    const el = document.getElementById('env-info');
+    el.textContent = 'Server: ' + (env.MATRIX_SERVER_NAME || 'unknown') + ' | Host: ' + (env.EXTERNAL_HOSTNAME || 'unknown');
+
+    // Hide disabled services
+    if (env.services) {
+      enabledServices = env.services;
+      document.querySelectorAll('[data-service]').forEach(function(el) {
+        var svc = el.getAttribute('data-service');
+        if (svc in env.services && !env.services[svc]) {
+          el.classList.add('hidden');
+        }
+      });
+    }
+  } catch {}
+}
+
 async function checkHealth() {
   const checks = [
-    { id: 's-synapse',        url: '/_matrix/client/versions' },
-    { id: 's-planka',         url: '/planka/' },
+    { id: 's-synapse',        url: '/_matrix/client/versions', service: 'synapse' },
+    { id: 's-planka',         url: '/planka/',                 service: 'planka' },
     { id: 's-chromadb',       url: '/chromadb/api/v2/heartbeat' },
     { id: 's-chromadb-admin', url: '/chromadb-admin/' },
-    { id: 's-ollama',         url: '/ollama/api/tags' },
+    { id: 's-ollama',         url: '/ollama/api/tags',         service: 'ollama' },
     { id: 's-neko',           url: '/neko/' },
     { id: 's-ttyd',           url: '/terminal/' },
   ];
 
   for (const check of checks) {
+    // Skip health checks for disabled services
+    if (check.service && enabledServices && !enabledServices[check.service]) continue;
+
     try {
       const resp = await fetch(check.url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
       const el = document.getElementById(check.id);
@@ -195,19 +225,8 @@ async function checkHealth() {
   }
 }
 
-async function loadEnv() {
-  try {
-    const resp = await fetch('/env.json');
-    if (resp.ok) {
-      const env = await resp.json();
-      const el = document.getElementById('env-info');
-      el.textContent = 'Server: ' + (env.MATRIX_SERVER_NAME || 'unknown') + ' | Host: ' + (env.EXTERNAL_HOSTNAME || 'unknown');
-    }
-  } catch {}
-}
-
-checkHealth();
-loadEnv();
+// Load env first (to know which services are enabled), then check health
+loadEnv().then(function() { checkHealth(); });
 setInterval(checkHealth, 30000);
 </script>
 </body>

@@ -28,6 +28,14 @@ chown -R dev:dev "$WORKSPACE/data/coding/"
 # ---------------------------------------------------------------
 # 3. Defaults for optional env vars (needed by init scripts)
 # ---------------------------------------------------------------
+
+# Service enablement flags (default true for backward compat with full image)
+export CONCLAVE_POSTGRES_ENABLED="${CONCLAVE_POSTGRES_ENABLED:-true}"
+export CONCLAVE_SYNAPSE_ENABLED="${CONCLAVE_SYNAPSE_ENABLED:-true}"
+export CONCLAVE_ELEMENT_WEB_ENABLED="${CONCLAVE_ELEMENT_WEB_ENABLED:-true}"
+export CONCLAVE_PLANKA_ENABLED="${CONCLAVE_PLANKA_ENABLED:-true}"
+export CONCLAVE_OLLAMA_ENABLED="${CONCLAVE_OLLAMA_ENABLED:-true}"
+
 export CONCLAVE_AGENT_USER="${CONCLAVE_AGENT_USER:-pi}"
 export MATRIX_SERVER_NAME="${MATRIX_SERVER_NAME:-conclave.local}"
 export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-localhost}"
@@ -79,11 +87,15 @@ SYNAPSE_FORM_SECRET=$SYNAPSE_FORM_SECRET
 SECRETS_EOF
     chmod 600 "$SECRETS_FILE"
 
-    # Initialize PostgreSQL
-    /opt/conclave/scripts/init-postgres.sh
+    # Initialize PostgreSQL (only if local postgres is enabled)
+    if [ "$CONCLAVE_POSTGRES_ENABLED" = "true" ]; then
+        /opt/conclave/scripts/init-postgres.sh
+    fi
 
-    # Initialize Synapse config
-    /opt/conclave/scripts/init-synapse.sh
+    # Initialize Synapse config (only if local synapse is enabled)
+    if [ "$CONCLAVE_SYNAPSE_ENABLED" = "true" ]; then
+        /opt/conclave/scripts/init-synapse.sh
+    fi
 fi
 
 # ---------------------------------------------------------------
@@ -113,11 +125,14 @@ NGINX_PASSWORD="${NGINX_PASSWORD:-$CONCLAVE_ADMIN_PASSWORD}"
 htpasswd -bc "$WORKSPACE/config/nginx/htpasswd" "$NGINX_USER" "$NGINX_PASSWORD" 2>/dev/null
 
 # Render Element Web config and symlink into app directory
-envsubst < /opt/conclave/configs/element-web/config.json.template > "$WORKSPACE/config/element-web/config.json"
-ln -sf "$WORKSPACE/config/element-web/config.json" /opt/element-web/config.json
+if [ "$CONCLAVE_ELEMENT_WEB_ENABLED" = "true" ]; then
+    envsubst < /opt/conclave/configs/element-web/config.json.template > "$WORKSPACE/config/element-web/config.json"
+    ln -sf "$WORKSPACE/config/element-web/config.json" /opt/element-web/config.json
+fi
 
 # Write Planka env and symlink into app directory (dotenv loads from cwd)
-cat > "$WORKSPACE/config/planka/.env" <<PLANKA_EOF
+if [ "$CONCLAVE_PLANKA_ENABLED" = "true" ]; then
+    cat > "$WORKSPACE/config/planka/.env" <<PLANKA_EOF
 BASE_URL=http://${EXTERNAL_HOSTNAME}:1337,http://127.0.0.1:1337,${CONCLAVE_BASE_URL}/planka
 DATABASE_URL=postgresql://planka:${PLANKA_DB_PASSWORD}@127.0.0.1:5432/planka
 SECRET_KEY=${PLANKA_SECRET_KEY}
@@ -127,7 +142,8 @@ DEFAULT_ADMIN_NAME=Admin
 DEFAULT_ADMIN_USERNAME=admin
 TRUST_PROXY=true
 PLANKA_EOF
-ln -sf "$WORKSPACE/config/planka/.env" /opt/planka/.env
+    ln -sf "$WORKSPACE/config/planka/.env" /opt/planka/.env
+fi
 
 # Write ChromaDB env
 cat > "$WORKSPACE/config/chromadb/.env" <<CHROMA_EOF
@@ -150,23 +166,42 @@ NEKO_ICELITE=true
 NEKO_NAT1TO1=${NEKO_NAT1TO1}
 NEKO_EOF
 
+# Resolve service URLs (local or external)
+if [ "$CONCLAVE_SYNAPSE_ENABLED" = "true" ]; then
+    _MATRIX_HOMESERVER_URL="http://127.0.0.1:8008"
+    _AGENT_MATRIX_URL="${CONCLAVE_BASE_URL}"
+else
+    _MATRIX_HOMESERVER_URL="${EXTERNAL_MATRIX_URL:-}"
+    _AGENT_MATRIX_URL="${EXTERNAL_MATRIX_URL:-}"
+fi
+if [ "$CONCLAVE_PLANKA_ENABLED" = "true" ]; then
+    _AGENT_PLANKA_URL="${CONCLAVE_BASE_URL}/planka"
+else
+    _AGENT_PLANKA_URL="${EXTERNAL_PLANKA_URL:-}"
+fi
+if [ "$CONCLAVE_OLLAMA_ENABLED" = "true" ]; then
+    _AGENT_OLLAMA_URL="http://127.0.0.1:11434"
+else
+    _AGENT_OLLAMA_URL="${EXTERNAL_OLLAMA_URL:-}"
+fi
+
 # Write agent credentials env file (for coding agents in tmux)
 AGENT_ENV_FILE="$WORKSPACE/config/agent-env.sh"
 cat > "$AGENT_ENV_FILE" <<AGENT_EOF
 # Conclave agent credentials — sourced into tmux sessions
 AGENT_MATRIX_USER=${CONCLAVE_AGENT_USER}
 AGENT_MATRIX_PASSWORD=${CONCLAVE_AGENT_PASSWORD}
-AGENT_MATRIX_URL=${CONCLAVE_BASE_URL}
+AGENT_MATRIX_URL=${_AGENT_MATRIX_URL}
 AGENT_MATRIX_SERVER_NAME=${MATRIX_SERVER_NAME}
 AGENT_PLANKA_USER=${CONCLAVE_AGENT_USER}
 AGENT_PLANKA_EMAIL=${CONCLAVE_AGENT_USER}@local
 AGENT_PLANKA_PASSWORD=${CONCLAVE_AGENT_PASSWORD}
-AGENT_PLANKA_URL=${CONCLAVE_BASE_URL}/planka
+AGENT_PLANKA_URL=${_AGENT_PLANKA_URL}
 AGENT_NEKO_PASSWORD=${CONCLAVE_ADMIN_PASSWORD}
 AGENT_CHROMADB_TOKEN=${CHROMADB_TOKEN}
 AGENT_CHROMADB_URL=http://127.0.0.1:8000
-AGENT_OLLAMA_URL=http://127.0.0.1:11434
-MATRIX_HOMESERVER_URL=http://127.0.0.1:8008
+AGENT_OLLAMA_URL=${_AGENT_OLLAMA_URL}
+MATRIX_HOMESERVER_URL=${_MATRIX_HOMESERVER_URL}
 MATRIX_SERVER_NAME=${MATRIX_SERVER_NAME}
 MATRIX_READ_SKILL_PATH=/workspace/data/coding/.pi/agent/skills/matrix-read
 AGENT_EOF
@@ -210,12 +245,12 @@ cat > /opt/dashboard/env.json <<ENV_EOF
     "MATRIX_SERVER_NAME": "${MATRIX_SERVER_NAME}",
     "EXTERNAL_HOSTNAME": "${EXTERNAL_HOSTNAME}",
     "services": {
-        "synapse": true,
-        "element_web": true,
-        "postgres": true,
-        "planka": true,
+        "synapse": ${CONCLAVE_SYNAPSE_ENABLED},
+        "element_web": ${CONCLAVE_ELEMENT_WEB_ENABLED},
+        "postgres": ${CONCLAVE_POSTGRES_ENABLED},
+        "planka": ${CONCLAVE_PLANKA_ENABLED},
         "chromadb": true,
-        "ollama": true,
+        "ollama": ${CONCLAVE_OLLAMA_ENABLED},
         "neko": true,
         "ttyd": true,
         "ssh": true
@@ -235,6 +270,20 @@ TTYD_PASSWORD="${TTYD_PASSWORD:-$CONCLAVE_ADMIN_PASSWORD}"
 export TTYD_USER TTYD_PASSWORD
 export NEKO_PASSWORD NEKO_TCPMUX_PORT NEKO_NAT1TO1
 export CONCLAVE_AGENT_USER
+
+# Assemble optional supervisord service configs
+SUPERVISOR_SERVICES_DIR="/etc/supervisor/conf.d/services"
+mkdir -p "$SUPERVISOR_SERVICES_DIR"
+rm -f "$SUPERVISOR_SERVICES_DIR"/*.conf
+
+SUPERVISOR_OPTIONAL_DIR="/opt/conclave/configs/supervisor.d"
+[ "$CONCLAVE_POSTGRES_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/postgres.conf" "$SUPERVISOR_SERVICES_DIR/"
+[ "$CONCLAVE_SYNAPSE_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/synapse.conf" "$SUPERVISOR_SERVICES_DIR/"
+[ "$CONCLAVE_PLANKA_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/planka.conf" "$SUPERVISOR_SERVICES_DIR/"
+[ "$CONCLAVE_OLLAMA_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/ollama.conf" "$SUPERVISOR_SERVICES_DIR/"
+if [ "$CONCLAVE_SYNAPSE_ENABLED" = "true" ] || [ "$CONCLAVE_PLANKA_ENABLED" = "true" ]; then
+    cp "$SUPERVISOR_OPTIONAL_DIR/create-users.conf" "$SUPERVISOR_SERVICES_DIR/"
+fi
 
 # Source Neko and ChromaDB envs for supervisord
 set -a

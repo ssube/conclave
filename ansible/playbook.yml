@@ -6,37 +6,37 @@
     - role: base
 
     - role: postgres
-      when: conclave_postgres_enabled | default(true)
+      when: conclave_postgres_enabled | default(true) | bool
 
     - role: synapse
-      when: conclave_synapse_enabled | default(true)
+      when: conclave_synapse_enabled | default(true) | bool
 
     - role: element_web
-      when: conclave_element_web_enabled | default(true)
+      when: conclave_element_web_enabled | default(true) | bool
 
     - role: planka
-      when: conclave_planka_enabled | default(true)
+      when: conclave_planka_enabled | default(true) | bool
 
     - role: chromadb
-      when: conclave_chromadb_enabled | default(true)
+      when: conclave_chromadb_enabled | default(true) | bool
 
     - role: ollama
-      when: conclave_ollama_enabled | default(true)
+      when: conclave_ollama_enabled | default(true) | bool
 
     - role: neko
-      when: conclave_neko_enabled | default(true)
+      when: conclave_neko_enabled | default(true) | bool
 
     - role: coding_agents
-      when: conclave_coding_agents_enabled | default(true)
+      when: conclave_coding_agents_enabled | default(true) | bool
 
     - role: ttyd
-      when: conclave_ttyd_enabled | default(true)
+      when: conclave_ttyd_enabled | default(true) | bool
 
     - role: nginx
-      when: conclave_nginx_enabled | default(true)
+      when: conclave_nginx_enabled | default(true) | bool
 
     - role: ssh
-      when: conclave_ssh_enabled | default(true)
+      when: conclave_ssh_enabled | default(true) | bool
 
     - role: fail2ban
-      when: conclave_fail2ban_enabled | default(true)
+      when: conclave_fail2ban_enabled | default(true) | bool
