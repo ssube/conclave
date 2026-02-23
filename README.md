@@ -72,6 +72,15 @@ Shared skills available to all three coding agents (Pi, Claude Code, Codex). Loc
 | Web Browse | Browse the web — screenshots, text extraction, and JavaScript execution |
 | Web Search | Search the web for documentation, troubleshooting, and current information |
 
+Skills follow the [Agent Skills](https://agentskills.io/) standard (`SKILL.md` format). Many were inspired by or adapted from:
+
+- [anthropics/skills](https://github.com/anthropics/skills/tree/main/skills) — Anthropic's official skill examples
+- [badlogic/pi-skills](https://github.com/badlogic/pi-skills) — Pi's default skill collection
+- [ssube/pi-skills](https://github.com/ssube/pi-skills) — Additional Pi skills
+- [espennilsen/aivena](https://github.com/espennilsen/aivena) — AI-powered development skills
+- [obra/superpowers](https://github.com/obra/superpowers) — Agent capability extensions
+- [The Complete Guide to Building Skills for Claude](https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf?hsLang=en) (PDF)
+
 ## Quick Start
 
 Build and run locally with the dev script:
