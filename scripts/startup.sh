@@ -18,7 +18,7 @@ fi
 # 2. Create directory tree (idempotent)
 # ---------------------------------------------------------------
 mkdir -p "$WORKSPACE"/{config,data,logs}
-mkdir -p "$WORKSPACE"/config/{nginx,synapse,element-web,planka,chromadb,neko,ssh,cron}
+mkdir -p "$WORKSPACE"/config/{nginx,synapse,element-web,planka,chromadb,neko,ssh,cron,startup.d}
 mkdir -p "$WORKSPACE"/data/{synapse/media_store,postgres,planka,chromadb,ollama/models,neko/chromium-profile,coding/.pi/agent/{skills,prompts,extensions,themes},coding/.claude/skills,coding/projects}
 mkdir -p "$WORKSPACE"/logs/{nginx,synapse,postgres,planka,chromadb,ollama,neko,ttyd,pushgateway,cron}
 
@@ -324,6 +324,17 @@ fi
 
 # Ensure runtime directories exist (tmpfs clears /var/run on container start)
 mkdir -p /var/run/dbus
+
+# ---------------------------------------------------------------
+# 9. Run user startup scripts from /workspace/config/startup.d/
+# ---------------------------------------------------------------
+if [ -d "$WORKSPACE/config/startup.d" ]; then
+    for script in "$WORKSPACE/config/startup.d"/*.sh; do
+        [ -f "$script" ] || continue
+        echo "=== Running user script: $script ==="
+        bash "$script" || echo "WARN: $script exited with status $?"
+    done
+fi
 
 echo "=== Starting supervisord ==="
 exec supervisord -n -c /etc/supervisor/conf.d/conclave.conf

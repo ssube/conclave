@@ -100,11 +100,12 @@ On first start, `startup.sh` automatically:
 5. Renders config templates (nginx, Element Web, Planka, ChromaDB, N.eko)
 6. Installs SSH authorized keys (if `SSH_AUTHORIZED_KEYS` is set)
 7. Writes agent credentials to `/workspace/config/agent-env.sh`
-8. Starts supervisord (all services come up in priority order)
-9. Pulls the default Ollama model in the background
-10. Creates admin and agent users in Matrix and Planka (background oneshot)
-11. Creates a `#home` room in Matrix and invites the agent user
-12. Creates a "Work" project in Planka with a "Tasks" board and To Do / In Progress / Done lists
+8. Runs user startup scripts from `/workspace/config/startup.d/*.sh` (if any)
+9. Starts supervisord (all services come up in priority order)
+10. Pulls the default Ollama model in the background
+11. Creates admin and agent users in Matrix and Planka (background oneshot)
+12. Creates a `#home` room in Matrix and invites the agent user
+13. Creates a "Work" project in Planka with a "Tasks" board and To Do / In Progress / Done lists
 
 Subsequent boots skip database initialization and secret generation, re-render configs (including agent-env.sh), and start supervisord. User and resource creation is idempotent — existing users, rooms, and projects are skipped.
 
