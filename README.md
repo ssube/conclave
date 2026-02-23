@@ -20,6 +20,28 @@ A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a k
 | cron | — | — | System cron daemon (reads `/workspace/config/cron/crontab`) |
 | [OpenSSH](https://github.com/openssh/openssh-portable) | 22 | — | Shell access as `dev` user |
 
+## Coding Agents
+
+The container includes three coding agent CLIs, each launched in its own tmux window:
+
+| Agent | tmux window | Description |
+|---|---|---|
+| [Pi](https://github.com/badlogic/pi-mono) | `pi` | Multi-provider coding agent |
+| [Claude Code](https://github.com/anthropics/claude-code) | `claude` | Anthropic's CLI for Claude |
+| [Codex](https://github.com/openai/codex) | `codex` | OpenAI's coding CLI |
+
+A fourth window (`dev`) provides a plain bash shell. The tmux session is pre-created by supervisord and shared across ttyd and SSH connections.
+
+### Pi Model Configuration
+
+Pi is configured with three providers in `configs/coding/pi-models.json`:
+
+- **ollama** — Local inference via the container's Ollama instance (`qwen3-coder:30b-a3b-q8_0`)
+- **anthropic** — Claude Sonnet 4.6 and Claude Haiku 4.5 (requires `ANTHROPIC_API_KEY`)
+- **openai** — o3, o4-mini, and GPT-4.1 (requires `OPENAI_API_KEY`)
+
+The configuration uses the provider format with per-provider `baseUrl`, `api`, and `apiKey` fields. API keys named in UPPER_CASE are resolved from environment variables at runtime.
+
 ## Skills
 
 Shared skills available to all three coding agents (Pi, Claude Code, Codex). Located in `pi/skills/` and symlinked into each agent's skill directory.
@@ -73,6 +95,17 @@ This builds the Docker image and starts the container with sensible defaults. On
 After first-boot setup completes, auto-generated credentials (Matrix admin password, etc.) are printed to the console.
 
 Subcommands: `build`, `run`, `stop`, `logs`. Override the container runtime with `CONTAINER_RUNTIME=podman`.
+
+## Container Images
+
+Pre-built images are available on Docker Hub:
+
+| Image | Description |
+|---|---|
+| [`ssube/conclave:latest`](https://hub.docker.com/r/ssube/conclave) | Full image — all services including N.eko, Ollama, and GPU support |
+| [`ssube/conclave-minimal:latest`](https://hub.docker.com/r/ssube/conclave-minimal) | Minimal image — no Matrix, Planka, Ollama, or GPU dependencies |
+
+The minimal image (`Dockerfile.minimal`) disables Matrix (Synapse + Element Web), PostgreSQL, Planka, Ollama, and Pushgateway at build time. It keeps N.eko, Chromium, ChromaDB, ttyd, and cron. Based on `ubuntu:22.04` instead of NVIDIA CUDA.
 
 ## Runpod Deployment
 
@@ -181,28 +214,6 @@ Available environment variables in the tmux session:
 
 A Matrix admin user (`admin`) and a Planka admin user are also created automatically (see `scripts/create-users.sh`).
 
-## Coding Agents
-
-The container includes three coding agent CLIs, each launched in its own tmux window:
-
-| Agent | tmux window | Description |
-|---|---|---|
-| [Pi](https://github.com/badlogic/pi-mono) | `pi` | Multi-provider coding agent |
-| [Claude Code](https://github.com/anthropics/claude-code) | `claude` | Anthropic's CLI for Claude |
-| [Codex](https://github.com/openai/codex) | `codex` | OpenAI's coding CLI |
-
-A fourth window (`dev`) provides a plain bash shell. The tmux session is pre-created by supervisord and shared across ttyd and SSH connections.
-
-### Pi Model Configuration
-
-Pi is configured with three providers in `configs/coding/pi-models.json`:
-
-- **ollama** — Local inference via the container's Ollama instance (`qwen3-coder:30b-a3b-q8_0`)
-- **anthropic** — Claude Sonnet 4.6 and Claude Haiku 4.5 (requires `ANTHROPIC_API_KEY`)
-- **openai** — o3, o4-mini, and GPT-4.1 (requires `OPENAI_API_KEY`)
-
-The configuration uses the provider format with per-provider `baseUrl`, `api`, and `apiKey` fields. API keys named in UPPER_CASE are resolved from environment variables at runtime.
-
 ## Extending Without Rebuilding
 
 All persistent state lives on the `/workspace` volume. Three hook points let you add custom services, startup logic, and cron jobs without rebuilding the container image.
@@ -243,17 +254,6 @@ Validate hardening with:
 ```bash
 sudo bash scripts/test-security.sh
 ```
-
-## Container Images
-
-Pre-built images are available on Docker Hub:
-
-| Image | Description |
-|---|---|
-| [`ssube/conclave:latest`](https://hub.docker.com/r/ssube/conclave) | Full image — all services including N.eko, Ollama, and ComfyUI support |
-| [`ssube/conclave-minimal:latest`](https://hub.docker.com/r/ssube/conclave-minimal) | Minimal image — no N.eko, Ollama, Chromium, or GPU dependencies |
-
-The minimal image (`Dockerfile.minimal`) disables Matrix (Synapse + Element Web), PostgreSQL, Planka, Ollama, and Pushgateway at build time. It keeps N.eko, Chromium, ChromaDB, ttyd, and cron. Based on `ubuntu:22.04` instead of NVIDIA CUDA.
 
 ## Development
 
