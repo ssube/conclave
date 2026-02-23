@@ -20,6 +20,36 @@ A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a k
 | cron | — | — | System cron daemon (reads `/workspace/config/cron/crontab`) |
 | [OpenSSH](https://github.com/openssh/openssh-portable) | 22 | — | Shell access as `dev` user |
 
+## Skills
+
+Shared skills available to all three coding agents (Pi, Claude Code, Codex). Located in `pi/skills/` and symlinked into each agent's skill directory.
+
+| Skill | Description |
+|---|---|
+| Browser Connect | Connect to Chromium via CDP for automation, screenshots, and cookie management |
+| ChromaDB | Semantic search and vector storage using ChromaDB |
+| ComfyUI Generate | Generate images via ComfyUI API with Flux/LoRA support, plus image-to-video |
+| ComfyUI Info | Discover available ComfyUI resources — models, LoRAs, workflows, system status |
+| ComfyUI Queue | Track, download, cancel, and monitor ComfyUI jobs |
+| Conclave Build | Build, test, and iterate on the Conclave container |
+| Conclave Launch | Launch a Conclave workspace on Runpod |
+| Healthcheck | Check the health of all Conclave services |
+| Image Optimize | Resize, compress, and format images for platform-specific requirements |
+| Matrix Read | Read messages, reactions, and replies from Matrix rooms |
+| Matrix Send | Send messages, images, and videos to Matrix rooms |
+| Obsidian Import | Import an Obsidian vault into ChromaDB with heading-based chunking |
+| Ollama | Local LLM generation for captioning, prompt generation, and creative writing |
+| Planka | Manage tasks and projects in the Planka kanban board |
+| Project Planning | Interview-driven planning to produce specs and Planka cards |
+| Prometheus | Push metrics to Prometheus Pushgateway |
+| Self-Reflection | Review context, identify gaps, and refine approaches |
+| Skill Creator | Create and validate new skills with proper structure and conventions |
+| SQLite | Execute SQL queries against a SQLite database |
+| Systematic Debugging | 4-phase debugging process for finding root cause of issues |
+| Take Note | Capture notes and context into ChromaDB for long-term memory |
+| Web Browse | Browse the web — screenshots, text extraction, and JavaScript execution |
+| Web Search | Search the web for documentation, troubleshooting, and current information |
+
 ## Quick Start
 
 Build and run locally with the dev script:
