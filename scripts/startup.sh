@@ -18,7 +18,7 @@ fi
 # 2. Create directory tree (idempotent)
 # ---------------------------------------------------------------
 mkdir -p "$WORKSPACE"/{config,data,logs}
-mkdir -p "$WORKSPACE"/config/{nginx,synapse,element-web,planka,chromadb,neko,ssh,cron,startup.d}
+mkdir -p "$WORKSPACE"/config/{nginx,synapse,element-web,planka,chromadb,neko,ssh,cron,startup.d,supervisor.d}
 mkdir -p "$WORKSPACE"/data/{synapse/media_store,postgres,planka,chromadb,ollama/models,neko/chromium-profile,coding/.pi/agent/{skills,prompts,extensions,themes},coding/.claude/skills,coding/projects}
 mkdir -p "$WORKSPACE"/logs/{nginx,synapse,postgres,planka,chromadb,ollama,neko,ttyd,pushgateway,cron}
 

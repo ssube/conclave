@@ -103,7 +103,7 @@ On first start, `startup.sh` automatically:
 6. Installs SSH authorized keys (if `SSH_AUTHORIZED_KEYS` is set)
 7. Writes agent credentials to `/workspace/config/agent-env.sh`
 8. Runs user startup scripts from `/workspace/config/startup.d/*.sh` (if any)
-9. Starts supervisord (all services come up in priority order)
+9. Starts supervisord (all services come up in priority order; also includes any `.conf` files from `/workspace/config/supervisor.d/`)
 10. Pulls the default Ollama model in the background
 11. Creates admin and agent users in Matrix and Planka (background oneshot)
 12. Creates a `#home` room in Matrix and invites the agent user
@@ -173,6 +173,33 @@ Pi is configured with three providers in `configs/coding/pi-models.json`:
 - **openai** — o3, o4-mini, and GPT-4.1 (requires `OPENAI_API_KEY`)
 
 The configuration uses the provider format with per-provider `baseUrl`, `api`, and `apiKey` fields. API keys named in UPPER_CASE are resolved from environment variables at runtime.
+
+## Extending Without Rebuilding
+
+All persistent state lives on the `/workspace` volume. Three hook points let you add custom services, startup logic, and cron jobs without rebuilding the container image.
+
+### Custom services (`/workspace/config/supervisor.d/*.conf`)
+
+Drop a standard supervisord program `.conf` file into this directory to run additional services. Files are included by supervisord at startup alongside the built-in services.
+
+```ini
+[program:my-service]
+command=/workspace/data/coding/my-service --port 9999
+autostart=true
+autorestart=true
+stdout_logfile=/workspace/logs/my-service-stdout.log
+stderr_logfile=/workspace/logs/my-service-stderr.log
+```
+
+After adding a file, restart the container or run `supervisorctl reread && supervisorctl update` to pick it up without a full restart.
+
+### Startup scripts (`/workspace/config/startup.d/*.sh`)
+
+Shell scripts in this directory run as root on every boot, after config rendering but before supervisord starts. Each script has a timeout of 60 seconds (configurable via `CONCLAVE_STARTUP_TIMEOUT`). Use these for one-time setup like installing packages, downloading models, or configuring services.
+
+### Cron jobs (`/workspace/config/cron/crontab`)
+
+If `CONCLAVE_CRON_ENABLED=true` (the default), this file is installed as the `dev` user's crontab on every boot. Use standard crontab syntax.
 
 ## Security
 
