@@ -19,7 +19,7 @@ fi
 # ---------------------------------------------------------------
 mkdir -p "$WORKSPACE"/{config,data,logs}
 mkdir -p "$WORKSPACE"/config/{nginx,synapse,element-web,planka,chromadb,neko,ssh,cron,startup.d,supervisor.d}
-mkdir -p "$WORKSPACE"/data/{synapse/media_store,postgres,planka,chromadb,ollama/models,neko/chromium-profile,coding/.pi/agent/{skills,prompts,extensions,themes},coding/.claude/skills,coding/projects}
+mkdir -p "$WORKSPACE"/data/{synapse/media_store,postgres,planka,chromadb,ollama/models,neko/chromium-profile,coding/.pi/agent/{skills,agents,prompts,extensions,themes},coding/.claude,coding/projects}
 mkdir -p "$WORKSPACE"/logs/{nginx,synapse,postgres,planka,chromadb,ollama,neko,ttyd,pushgateway,cron}
 
 # Ensure dev user owns coding workspace
@@ -248,8 +248,17 @@ fi
 rsync -a --ignore-existing /opt/conclave/pi/skills/ "$WORKSPACE/data/coding/.pi/agent/skills/" 2>/dev/null || true
 rsync -a --ignore-existing /opt/conclave/pi/extensions/ "$WORKSPACE/data/coding/.pi/agent/extensions/" 2>/dev/null || true
 
-# Sync Claude Code skills
-rsync -a /opt/conclave/pi/skills/conclave-launch/ "$WORKSPACE/data/coding/.claude/skills/conclave-launch/" 2>/dev/null || true
+# Share Pi skills and agents with Claude Code and Codex via symlinks.
+# Pi is the canonical source. All three tools use the same SKILL.md format
+# (Agent Skills standard), and Pi/Claude Code share the same agent .md format.
+#   Skills:  Pi .pi/agent/skills/ → Claude Code .claude/skills/, Codex .agents/skills/
+#   Agents:  Pi .pi/agent/agents/ → Claude Code .claude/agents/
+CODING_HOME="$WORKSPACE/data/coding"
+rm -rf "$CODING_HOME/.claude/skills" "$CODING_HOME/.claude/agents"
+ln -sfn ../.pi/agent/skills "$CODING_HOME/.claude/skills"
+ln -sfn ../.pi/agent/agents "$CODING_HOME/.claude/agents"
+mkdir -p "$CODING_HOME/projects/.agents"
+ln -sfn ../../.pi/agent/skills "$CODING_HOME/projects/.agents/skills"
 
 # Copy pi-models.json and tmux.conf if not present (don't overwrite user edits)
 cp -n /opt/conclave/configs/coding/pi-models.json "$WORKSPACE/data/coding/.pi/agent/models.json" 2>/dev/null || true
