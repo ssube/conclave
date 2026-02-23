@@ -63,7 +63,7 @@ ENV_JSON="${ENV_JSON%,}]"
 RESPONSE=$(curl -sf "https://api.runpod.io/graphql?api_key=${RUNPOD_API_KEY}" \
     -H "Content-Type: application/json" \
     -d "{
-        \"query\": \"mutation { podFindAndDeployOnDemand(input: { name: \\\"${POD_NAME}\\\", imageName: \\\"${IMAGE}\\\", gpuTypeId: \\\"${GPU_TYPE}\\\", volumeInGb: ${VOLUME_SIZE}, containerDiskInGb: 20, ports: \\\"8888/http,22/tcp,52000-52100/udp\\\", env: ${ENV_JSON} }) { id machineId } }\"
+        \"query\": \"mutation { podFindAndDeployOnDemand(input: { name: \\\"${POD_NAME}\\\", imageName: \\\"${IMAGE}\\\", gpuTypeId: \\\"${GPU_TYPE}\\\", volumeInGb: ${VOLUME_SIZE}, containerDiskInGb: 20, ports: \\\"8888/http,22/tcp\\\", env: ${ENV_JSON} }) { id machineId } }\"
     }")
 
 POD_ID=$(echo "$RESPONSE" | jq -r '.data.podFindAndDeployOnDemand.id // empty')
@@ -90,6 +90,9 @@ for i in $(seq 1 60); do
         echo "Dashboard: https://${POD_ID}-8888.proxy.runpod.net/"
         echo "SSH:       ssh root@${POD_ID}-22.proxy.runpod.net"
         echo "Pod ID:    $POD_ID"
+        echo ""
+        echo "Note: N.eko remote desktop is not available on Runpod (no direct port access)."
+        echo "      Use the browser via CDP (port 9222) for automation."
         exit 0
     fi
 

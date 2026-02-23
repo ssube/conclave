@@ -21,6 +21,8 @@ _EXTERNAL_PLANKA_URL=$(get_existing EXTERNAL_PLANKA_URL)
 _EXTERNAL_OLLAMA_URL=$(get_existing EXTERNAL_OLLAMA_URL)
 _TZ=$(get_existing TZ)
 _TZ="${_TZ:-UTC}"
+_NEKO_NAT1TO1=$(get_existing NEKO_NAT1TO1)
+_NEKO_TCPMUX_PORT=$(get_existing NEKO_TCPMUX_PORT)
 _CONCLAVE_ADMIN_PASSWORD=$(get_existing CONCLAVE_ADMIN_PASSWORD)
 _SSH_AUTHORIZED_KEYS=$(get_existing SSH_AUTHORIZED_KEYS)
 
@@ -40,6 +42,8 @@ prompt EXTERNAL_MATRIX_URL "$_EXTERNAL_MATRIX_URL" "EXTERNAL_MATRIX_URL"
 prompt EXTERNAL_PLANKA_URL "$_EXTERNAL_PLANKA_URL" "EXTERNAL_PLANKA_URL"
 prompt EXTERNAL_OLLAMA_URL "$_EXTERNAL_OLLAMA_URL" "EXTERNAL_OLLAMA_URL"
 prompt TZ "$_TZ" "TZ"
+prompt NEKO_NAT1TO1 "$_NEKO_NAT1TO1" "NEKO_NAT1TO1 (node IP for WebRTC)"
+prompt NEKO_TCPMUX_PORT "$_NEKO_TCPMUX_PORT" "NEKO_TCPMUX_PORT (must match NodePort)"
 
 if [ -n "$_CONCLAVE_ADMIN_PASSWORD" ]; then
     read -rsp "CONCLAVE_ADMIN_PASSWORD [keep existing]: " CONCLAVE_ADMIN_PASSWORD
@@ -62,14 +66,20 @@ fi
 echo ""
 echo "Creating secret $SECRET_NAME in namespace $NAMESPACE..."
 
+SECRET_ARGS=(
+  --from-literal="EXTERNAL_HOSTNAME=${EXTERNAL_HOSTNAME}"
+  --from-literal="EXTERNAL_MATRIX_URL=${EXTERNAL_MATRIX_URL}"
+  --from-literal="EXTERNAL_PLANKA_URL=${EXTERNAL_PLANKA_URL}"
+  --from-literal="EXTERNAL_OLLAMA_URL=${EXTERNAL_OLLAMA_URL}"
+  --from-literal="TZ=${TZ}"
+  --from-literal="CONCLAVE_ADMIN_PASSWORD=${CONCLAVE_ADMIN_PASSWORD}"
+  --from-literal="SSH_AUTHORIZED_KEYS=${SSH_AUTHORIZED_KEYS}"
+)
+[ -n "$NEKO_NAT1TO1" ] && SECRET_ARGS+=(--from-literal="NEKO_NAT1TO1=${NEKO_NAT1TO1}")
+[ -n "$NEKO_TCPMUX_PORT" ] && SECRET_ARGS+=(--from-literal="NEKO_TCPMUX_PORT=${NEKO_TCPMUX_PORT}")
+
 kubectl -n "$NAMESPACE" create secret generic "$SECRET_NAME" \
-  --from-literal="EXTERNAL_HOSTNAME=${EXTERNAL_HOSTNAME}" \
-  --from-literal="EXTERNAL_MATRIX_URL=${EXTERNAL_MATRIX_URL}" \
-  --from-literal="EXTERNAL_PLANKA_URL=${EXTERNAL_PLANKA_URL}" \
-  --from-literal="EXTERNAL_OLLAMA_URL=${EXTERNAL_OLLAMA_URL}" \
-  --from-literal="TZ=${TZ}" \
-  --from-literal="CONCLAVE_ADMIN_PASSWORD=${CONCLAVE_ADMIN_PASSWORD}" \
-  --from-literal="SSH_AUTHORIZED_KEYS=${SSH_AUTHORIZED_KEYS}" \
+  "${SECRET_ARGS[@]}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 echo "Done."

@@ -14,7 +14,7 @@ A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a k
 | ChromaDB | 8000 | `/chromadb/` | Vector database for RAG |
 | ChromaDB Admin | 3100 | `/chromadb-admin/` | Vector database browser |
 | Ollama | 11434 | `/ollama/` | LLM inference (OpenAI-compatible API) |
-| N.eko | 8080 | `/neko/` | WebRTC remote browser session (TCPMUX on 8081) |
+| N.eko | 8080 | `/neko/` | WebRTC remote browser session (TCPMUX on `NEKO_TCPMUX_PORT`, default 8081) |
 | Pushgateway | 9091 | `/pushgateway/` | Prometheus Pushgateway for metrics |
 | Chromium CDP | 9222 | — | Browser automation (internal) |
 | ttyd | 7681 | `/terminal/` | Web terminal (tmux) |
@@ -85,6 +85,8 @@ Other options: `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatab
 | `TZ` | No | `UTC` | Container timezone (e.g. `America/New_York`) |
 | `CONCLAVE_PUSHGATEWAY_ENABLED` | No | `true` | Enable Prometheus Pushgateway |
 | `CONCLAVE_CRON_ENABLED` | No | `true` | Enable cron daemon (reads `/workspace/config/cron/crontab`) |
+| `NEKO_TCPMUX_PORT` | No | `8081` | N.eko TCPMUX port (set to NodePort value in k8s) |
+| `NEKO_NAT1TO1` | No | `$EXTERNAL_HOSTNAME` | IP address for WebRTC ICE candidates (set to node IP in k8s) |
 | `CONCLAVE_SETUP_ONLY` | No | — | Set to `1` to run setup and exit (for testing) |
 
 `CONCLAVE_ADMIN_PASSWORD` and `CONCLAVE_AGENT_PASSWORD` are auto-generated on first boot if not provided. Database passwords (`SYNAPSE_DB_PASSWORD`, `PLANKA_DB_PASSWORD`), `PLANKA_SECRET_KEY`, and `CHROMADB_TOKEN` are also auto-generated. All secrets are saved to `/workspace/config/generated-secrets.env`.
@@ -265,4 +267,9 @@ Conclave runs all services as native processes managed by **supervisord** inside
 
 **Runtime:** `startup.sh` handles first-boot initialization (secrets, databases, configs), then hands off to supervisord. All application state persists on the `/workspace` volume across pod restarts.
 
-**Networking:** nginx on port 8888 reverse-proxies all services by path prefix. Each service also listens on its own port for direct access. N.eko uses a single TCP port (8081, TCPMUX) for all WebRTC media instead of a UDP port range, simplifying firewall and container port configuration.
+**Networking:** nginx on port 8888 reverse-proxies all services by path prefix. Each service also listens on its own port for direct access. N.eko uses TCPMUX (single TCP port) for all WebRTC media. The TCPMUX port in ICE candidates must match the externally reachable port:
+- **Kubernetes:** Set `NEKO_TCPMUX_PORT` to the NodePort value and `NEKO_NAT1TO1` to the node IP.
+- **Runpod:** N.eko is auto-disabled — Runpod remaps all ports dynamically, breaking WebRTC ICE. The browser remains available via CDP (port 9222) for automation.
+- **Local dev:** Uses TCPMUX on port 8081 (default), accessible at `localhost:8080`.
+
+**N.eko stability:** N.eko (Pion WebRTC) can get stuck after a failed WebRTC connection, silently dropping all subsequent WebSocket clients without sending any messages. If the N.eko web UI connects but times out waiting for a response, restart the neko process: `supervisorctl restart neko`.

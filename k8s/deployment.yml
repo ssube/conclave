@@ -27,7 +27,7 @@ spec:
               name: ssh
             - containerPort: 8080
               name: neko
-            - containerPort: 8081
+            - containerPort: 30181
               name: neko-tcpmux
             - containerPort: 7681
               name: ttyd

@@ -47,7 +47,19 @@ export CONCLAVE_OLLAMA_ENABLED="${CONCLAVE_OLLAMA_ENABLED:-true}"
 
 export CONCLAVE_AGENT_USER="${CONCLAVE_AGENT_USER:-pi}"
 export MATRIX_SERVER_NAME="${MATRIX_SERVER_NAME:-conclave.local}"
-export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-localhost}"
+
+# Runpod detection: auto-configure hostname
+# N.eko WebRTC requires direct port access (matching internal/external ports).
+# Runpod remaps all TCP ports dynamically, so N.eko streaming is not available.
+# The browser is still usable via CDP (port 9222) for automation.
+if [ -n "${RUNPOD_POD_ID:-}" ] && [ -n "${RUNPOD_PUBLIC_IP:-}" ]; then
+    export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-${RUNPOD_PUBLIC_IP}}"
+    export CONCLAVE_NEKO_ENABLED="${CONCLAVE_NEKO_ENABLED:-false}"
+else
+    export EXTERNAL_HOSTNAME="${EXTERNAL_HOSTNAME:-localhost}"
+fi
+export CONCLAVE_NEKO_ENABLED="${CONCLAVE_NEKO_ENABLED:-true}"
+
 export CONCLAVE_BASE_URL="${CONCLAVE_BASE_URL:-http://${EXTERNAL_HOSTNAME}:8888}"
 export NGINX_USER="${NGINX_USER:-admin}"
 export TTYD_USER="${TTYD_USER:-admin}"
@@ -272,7 +284,7 @@ cat > /opt/dashboard/env.json <<ENV_EOF
         "chromadb": true,
         "ollama": ${CONCLAVE_OLLAMA_ENABLED},
         "pushgateway": ${CONCLAVE_PUSHGATEWAY_ENABLED},
-        "neko": true,
+        "neko": ${CONCLAVE_NEKO_ENABLED},
         "ttyd": true,
         "ssh": true
     }
@@ -304,6 +316,7 @@ SUPERVISOR_OPTIONAL_DIR="/opt/conclave/configs/supervisor.d"
 [ "$CONCLAVE_OLLAMA_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/ollama.conf" "$SUPERVISOR_SERVICES_DIR/"
 [ "$CONCLAVE_PUSHGATEWAY_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/pushgateway.conf" "$SUPERVISOR_SERVICES_DIR/"
 [ "$CONCLAVE_CRON_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/cron.conf" "$SUPERVISOR_SERVICES_DIR/"
+[ "$CONCLAVE_NEKO_ENABLED" = "true" ] && cp "$SUPERVISOR_OPTIONAL_DIR/neko.conf" "$SUPERVISOR_SERVICES_DIR/"
 if [ "$CONCLAVE_SYNAPSE_ENABLED" = "true" ] || [ "$CONCLAVE_PLANKA_ENABLED" = "true" ]; then
     cp "$SUPERVISOR_OPTIONAL_DIR/create-users.conf" "$SUPERVISOR_SERVICES_DIR/"
 fi
