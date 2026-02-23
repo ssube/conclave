@@ -1,8 +1,8 @@
-# Conclave
+# 🤫 Conclave
 
 A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a kanban board, AI coding agents, LLM inference, a vector database, and a remote browser session — all managed by supervisord behind an nginx reverse proxy, deployed as one unit onto a GPU pod.
 
-## Coding Agents
+## 🕵️ Coding Agents
 
 The container includes three coding agent CLIs, each launched in its own tmux window:
 
@@ -24,7 +24,7 @@ Pi is configured with three providers in `configs/coding/pi-models.json`:
 
 The configuration uses the provider format with per-provider `baseUrl`, `api`, and `apiKey` fields. API keys named in UPPER_CASE are resolved from environment variables at runtime.
 
-## Services
+## 🏰 Services
 
 | Service | Port | Path | Description |
 |---|---|---|---|
@@ -44,7 +44,7 @@ The configuration uses the provider format with per-provider `baseUrl`, `api`, a
 
 ![Conclave Dashboard](docs/dashboard.png)
 
-## Skills
+## 📜 Skills
 
 Shared skills available to all three coding agents (Pi, Claude Code, Codex). Located in `pi/skills/` and symlinked into each agent's skill directory.
 
@@ -83,7 +83,17 @@ Skills follow the [Agent Skills](https://agentskills.io/) standard (`SKILL.md` f
 - [obra/superpowers](https://github.com/obra/superpowers) — Agent capability extensions
 - [The Complete Guide to Building Skills for Claude](https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf?hsLang=en) (PDF)
 
-## Quick Start
+## 🚪 Quick Start
+
+### Docker Compose (recommended)
+
+```bash
+docker compose up -d
+```
+
+Edit `docker-compose.yml` to set credentials, external URLs, and N.eko WebRTC options. See comments in the file for all available environment variables.
+
+### Dev script
 
 Build and run locally with the dev script:
 
@@ -91,7 +101,7 @@ Build and run locally with the dev script:
 bash scripts/dev.sh
 ```
 
-This builds the Docker image and starts the container with sensible defaults. Once running, the script prints all service URLs and credentials:
+This builds the Docker image from source and starts the container with sensible defaults. Once running, the script prints all service URLs and credentials:
 
 - **Dashboard:** http://localhost:8888 (user: `admin`, password: auto-generated)
 - **Element:** http://localhost:8888/element/
@@ -107,7 +117,7 @@ After first-boot setup completes, auto-generated credentials (Matrix admin passw
 
 Subcommands: `build`, `run`, `stop`, `logs`. Override the container runtime with `CONTAINER_RUNTIME=podman`.
 
-## Container Images
+## 📦 Container Images
 
 Pre-built images are available on Docker Hub:
 
@@ -116,9 +126,26 @@ Pre-built images are available on Docker Hub:
 | [`ssube/conclave:latest`](https://hub.docker.com/r/ssube/conclave) | Full image — all services including N.eko, Ollama, and GPU support |
 | [`ssube/conclave-minimal:latest`](https://hub.docker.com/r/ssube/conclave-minimal) | Minimal image — no Matrix, Planka, Ollama, or GPU dependencies |
 
-The minimal image (`Dockerfile.minimal`) disables Matrix (Synapse + Element Web), PostgreSQL, Planka, Ollama, and Pushgateway at build time. It keeps N.eko, Chromium, ChromaDB, ttyd, and cron. Based on `ubuntu:22.04` instead of NVIDIA CUDA.
+The minimal image (`Dockerfile.minimal`) is based on `ubuntu:22.04` instead of NVIDIA CUDA, with several services disabled at build time:
 
-## Runpod Deployment
+| Service | Full | Minimal |
+|---|:---:|:---:|
+| nginx | ✅ | ✅ |
+| ChromaDB | ✅ | ✅ |
+| N.eko | ✅ | ✅ |
+| Chromium CDP | ✅ | ✅ |
+| ttyd | ✅ | ✅ |
+| OpenSSH | ✅ | ✅ |
+| cron | ✅ | ✅ |
+| Matrix Synapse | ✅ | — |
+| Element Web | ✅ | — |
+| PostgreSQL | ✅ | — |
+| Planka | ✅ | — |
+| Ollama | ✅ | — |
+| Pushgateway | ✅ | — |
+| GPU support | ✅ | — |
+
+## ☁️ Runpod Deployment
 
 Deploy to a Runpod GPU pod:
 
@@ -137,7 +164,7 @@ GPU presets: `a6000` (48GB), `a100-80` (80GB, default), `l6000` (48GB), `6000-pr
 
 Other options: `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatable).
 
-## Environment Variables
+## 🗝️ Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
@@ -164,7 +191,7 @@ Other options: `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatab
 
 `CONCLAVE_ADMIN_PASSWORD` and `CONCLAVE_AGENT_PASSWORD` are auto-generated on first boot if not provided. Database passwords (`SYNAPSE_DB_PASSWORD`, `PLANKA_DB_PASSWORD`), `PLANKA_SECRET_KEY`, and `CHROMADB_TOKEN` are also auto-generated. All secrets are saved to `/workspace/config/generated-secrets.env`.
 
-## First Boot
+## 🕯️ First Boot
 
 On first start, `startup.sh` automatically:
 
@@ -184,7 +211,7 @@ On first start, `startup.sh` automatically:
 
 Subsequent boots skip database initialization and secret generation, re-render configs (including agent-env.sh), and start supervisord. User and resource creation is idempotent — existing users, rooms, and projects are skipped.
 
-## SSH Access
+## 🔑 SSH Access
 
 SSH is configured for key-based authentication only. Pass your public key(s) via the `SSH_AUTHORIZED_KEYS` environment variable:
 
@@ -201,7 +228,7 @@ ssh dev@{pod-id}-22.proxy.runpod.net  # Runpod
 
 Keys are written to `/workspace/data/coding/.ssh/authorized_keys` on the persistent volume.
 
-## Agent Credentials
+## 🪪 Agent Credentials
 
 On each boot, `startup.sh` writes `/workspace/config/agent-env.sh` with credentials for the coding agents (Pi, Claude Code, Codex) to authenticate to Conclave services. This file is sourced into tmux sessions automatically.
 
@@ -225,7 +252,7 @@ Available environment variables in the tmux session:
 
 A Matrix admin user (`admin`) and a Planka admin user are also created automatically (see `scripts/create-users.sh`).
 
-## Extending Without Rebuilding
+## 🧩 Extending Without Rebuilding
 
 All persistent state lives on the `/workspace` volume. Three hook points let you add custom services, startup logic, and cron jobs without rebuilding the container image.
 
@@ -252,7 +279,7 @@ Shell scripts in this directory run as root on every boot, after config renderin
 
 If `CONCLAVE_CRON_ENABLED=true` (the default), this file is installed as the `dev` user's crontab on every boot. Use standard crontab syntax.
 
-## Security
+## 🔒 Security
 
 - **SSH hardening:** `PermitRootLogin no`, `PasswordAuthentication no`, `X11Forwarding no`, `AllowAgentForwarding no`, `MaxAuthTries 3`, `LoginGraceTime 30`
 - **fail2ban:** Jails for `sshd` and `nginx-http-auth` (5 retries, 1-hour ban)
@@ -266,7 +293,7 @@ Validate hardening with:
 sudo bash scripts/test-security.sh
 ```
 
-## Development
+## 🛠️ Development
 
 ### Building
 
@@ -295,20 +322,23 @@ sudo bash scripts/test-security.sh
 
 Runs the Ansible playbook, executes `startup.sh` in setup-only mode, then validates dev user, SSH hardening, fail2ban jails, directory ownership, and supervisord config.
 
-Browser end-to-end tests (requires a running container):
+End-to-end tests (requires a running container):
 
 ```bash
 npm install --no-save playwright && npx playwright install chromium
-node scripts/test-browser-final.mjs
+node scripts/test-e2e.mjs                  # full image
+node scripts/test-e2e.mjs --minimal        # minimal image (skips disabled services)
 ```
 
-Tests all 9 services via Playwright: dashboard, Element, Matrix API, ChromaDB, Ollama, terminal, Planka login (including terms acceptance), and Neko WebRTC.
+Tests all services via Playwright and HTTP: dashboard, Element, Matrix API, ChromaDB, Ollama, terminal, Planka, Neko WebRTC, skills, and the agent healthcheck script.
 
-## Project Structure
+## 🗺️ Project Structure
 
 ```
 conclave/
-├── Dockerfile                       # Ansible-based build
+├── Dockerfile                       # Full image (nvidia/cuda base)
+├── Dockerfile.minimal               # Minimal image (ubuntu base, no GPU)
+├── docker-compose.yml               # Single-host deployment
 ├── ansible/
 │   ├── playbook.yml                 # 12 roles: base → services → security
 │   ├── inventory.yml
@@ -319,28 +349,29 @@ conclave/
 │   ├── dev.sh                       # Local build + run
 │   ├── launch-runpod.sh             # Runpod deployment
 │   ├── test-security.sh             # Security validation
-│   ├── test-browser-final.mjs       # Playwright end-to-end browser tests
+│   ├── test-e2e.mjs                 # End-to-end tests (Playwright + HTTP)
+│   ├── agent-healthcheck.sh         # Agent-facing health check (all services)
 │   ├── init-postgres.sh             # PostgreSQL first-boot
 │   ├── init-synapse.sh              # Synapse config generation
 │   ├── ollama-pull.sh               # Background model pull
 │   ├── create-users.sh              # Post-start user + resource creation
 │   ├── tmux-session.sh              # Pre-create tmux session (supervisord)
 │   ├── tmux-workspace.sh            # tmux attach/create for ttyd
-│   └── healthcheck.sh               # Container health check
+│   └── healthcheck.sh               # Container health check (Docker)
 ├── configs/
 │   ├── supervisord.conf             # Process manager definitions
 │   ├── nginx/nginx.conf.template
 │   ├── synapse/homeserver.override.yaml
 │   ├── element-web/config.json.template
 │   └── coding/{pi-models.json,tmux.conf}
-├── skills/                          # Claude Code and pi skills
+├── pi/skills/                       # Shared skills for all coding agents
 ├── dashboard/index.html             # Service status page
 └── spec.md                          # Full implementation specification
 ```
 
-## Architecture
+## 🏛️ Architecture
 
-Conclave runs all services as native processes managed by **supervisord** inside a single Docker container based on `nvidia/cuda:12.4.1-runtime-ubuntu22.04`.
+Conclave runs all services as native processes managed by **supervisord** inside a single Docker container. The full image is based on `nvidia/cuda:12.4.1-runtime-ubuntu22.04`; the minimal image uses `ubuntu:22.04`.
 
 **Build:** An Ansible playbook with per-service roles runs during `docker build`. Each role installs its service (via apt, pip, npm, or source build), with versions pinned in `ansible/group_vars/all.yml`.
 
