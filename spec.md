@@ -1073,12 +1073,9 @@ conclave/
 ├── skills/
 │   ├── claude-code/
 │   │   └── launch-conclave.md
-│   ├── matrix-read/
-│   │   ├── SKILL.md
-│   │   └── matrix_read.py
-│   └── matrix-send/
+│   └── matrix/
 │       ├── SKILL.md
-│       └── send.sh
+│       └── matrix.py
 └── dashboard/
     └── index.html
 ```

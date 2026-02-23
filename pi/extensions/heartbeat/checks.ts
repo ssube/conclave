@@ -82,10 +82,10 @@ export function checkMatrixMessages(exec: ExecFn, sinceMinutes: number, priority
 		// Source agent-env.sh to get latest credentials (token may be appended
 		// after the pi process started, due to create-users.sh race)
 		const envSource = "[ -f /workspace/config/agent-env.sh ] && . /workspace/config/agent-env.sh;";
-		const matrixReadPath = process.env.MATRIX_READ_SKILL_PATH || "./skills/matrix-read";
+		const matrixSkillPath = process.env.MATRIX_SKILL_PATH || "./skills/matrix";
 		const { stdout, ok } = await exec(
-			`${envSource} cd ${matrixReadPath} && ` +
-			`python3 matrix_read.py --all --since ${sinceMinutes} --json 2>/dev/null`
+			`${envSource} cd ${matrixSkillPath} && ` +
+			`python3 matrix.py read --all --since ${sinceMinutes} --json 2>/dev/null`
 		);
 
 		if (!ok || !stdout) {
