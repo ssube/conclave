@@ -328,11 +328,23 @@ mkdir -p /var/run/dbus
 # ---------------------------------------------------------------
 # 9. Run user startup scripts from /workspace/config/startup.d/
 # ---------------------------------------------------------------
+STARTUP_TIMEOUT="${CONCLAVE_STARTUP_TIMEOUT:-60}"
 if [ -d "$WORKSPACE/config/startup.d" ]; then
     for script in "$WORKSPACE/config/startup.d"/*.sh; do
         [ -f "$script" ] || continue
         echo "=== Running user script: $script ==="
-        bash "$script" || echo "WARN: $script exited with status $?"
+        timeout "$STARTUP_TIMEOUT" bash "$script" &
+        SCRIPT_PID=$!
+        if wait "$SCRIPT_PID" 2>/dev/null; then
+            echo "=== OK: $script ==="
+        else
+            EXIT_CODE=$?
+            if [ "$EXIT_CODE" -eq 124 ]; then
+                echo "WARN: $script timed out after ${STARTUP_TIMEOUT}s (killed)"
+            else
+                echo "WARN: $script exited with status $EXIT_CODE"
+            fi
+        fi
     done
 fi
 
