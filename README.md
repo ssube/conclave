@@ -2,24 +2,6 @@
 
 A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a kanban board, AI coding agents, LLM inference, a vector database, and a remote browser session — all managed by supervisord behind an nginx reverse proxy, deployed as one unit onto a GPU pod.
 
-## Services
-
-| Service | Port | Path | Description |
-|---|---|---|---|
-| [nginx](https://github.com/nginx/nginx) | 8888 | `/` | Unified reverse proxy and dashboard |
-| [Matrix Synapse](https://github.com/element-hq/synapse) | 8008 | `/_matrix/` | Chat homeserver |
-| [Element Web](https://github.com/element-hq/element-web) | — | `/element/` | Matrix web client (static files) |
-| [PostgreSQL 16](https://github.com/postgres/postgres) | 5432 | — | Shared database (Synapse + Planka) |
-| [Planka](https://github.com/plankanban/planka) | 1337 | `/planka/` | Kanban project management |
-| [ChromaDB](https://github.com/chroma-core/chroma) | 8000 | `/chromadb/` | Vector database for RAG |
-| [Ollama](https://github.com/ollama/ollama) | 11434 | `/ollama/` | LLM inference (OpenAI-compatible API) |
-| [N.eko](https://github.com/m1k1o/neko) | 8080 | `/neko/` | WebRTC remote browser session (TCPMUX on `NEKO_TCPMUX_PORT`, default 8081) |
-| [Pushgateway](https://github.com/prometheus/pushgateway) | 9091 | `/pushgateway/` | Prometheus Pushgateway for metrics |
-| Chromium CDP | 9222 | — | Browser automation (internal) |
-| [ttyd](https://github.com/tsl0922/ttyd) | 7681 | `/terminal/` | Web terminal (tmux) |
-| cron | — | — | System cron daemon (reads `/workspace/config/cron/crontab`) |
-| [OpenSSH](https://github.com/openssh/openssh-portable) | 22 | — | Shell access as `dev` user |
-
 ## Coding Agents
 
 The container includes three coding agent CLIs, each launched in its own tmux window:
@@ -41,6 +23,26 @@ Pi is configured with three providers in `configs/coding/pi-models.json`:
 - **openai** — o3, o4-mini, and GPT-4.1 (requires `OPENAI_API_KEY`)
 
 The configuration uses the provider format with per-provider `baseUrl`, `api`, and `apiKey` fields. API keys named in UPPER_CASE are resolved from environment variables at runtime.
+
+## Services
+
+| Service | Port | Path | Description |
+|---|---|---|---|
+| [nginx](https://github.com/nginx/nginx) | 8888 | `/` | Unified reverse proxy and dashboard |
+| [Matrix Synapse](https://github.com/element-hq/synapse) | 8008 | `/_matrix/` | Chat homeserver |
+| [Element Web](https://github.com/element-hq/element-web) | — | `/element/` | Matrix web client (static files) |
+| [PostgreSQL 16](https://github.com/postgres/postgres) | 5432 | — | Shared database (Synapse + Planka) |
+| [Planka](https://github.com/plankanban/planka) | 1337 | `/planka/` | Kanban project management |
+| [ChromaDB](https://github.com/chroma-core/chroma) | 8000 | `/chromadb/` | Vector database for RAG |
+| [Ollama](https://github.com/ollama/ollama) | 11434 | `/ollama/` | LLM inference (OpenAI-compatible API) |
+| [N.eko](https://github.com/m1k1o/neko) | 8080 | `/neko/` | WebRTC remote browser session (TCPMUX on `NEKO_TCPMUX_PORT`, default 8081) |
+| [Pushgateway](https://github.com/prometheus/pushgateway) | 9091 | `/pushgateway/` | Prometheus Pushgateway for metrics |
+| Chromium CDP | 9222 | — | Browser automation (internal) |
+| [ttyd](https://github.com/tsl0922/ttyd) | 7681 | `/terminal/` | Web terminal (tmux) |
+| cron | — | — | System cron daemon (reads `/workspace/config/cron/crontab`) |
+| [OpenSSH](https://github.com/openssh/openssh-portable) | 22 | — | Shell access as `dev` user |
+
+![Conclave Dashboard](docs/dashboard.png)
 
 ## Skills
 
