@@ -6,7 +6,7 @@
 set -e
 
 # Configuration from environment
-PUSHGATEWAY_URL="${PROMETHEUS_PUSHGATEWAY_URL:-}"
+PUSHGATEWAY_URL="${AGENT_PUSHGATEWAY_URL:-}"
 JOB_NAME="${PROMETHEUS_JOB_NAME:-agent}"
 INSTANCE="${PROMETHEUS_INSTANCE:-$(hostname)}"
 
@@ -27,14 +27,14 @@ usage() {
     echo "  --stdin             Read metrics from stdin"
     echo ""
     echo "Environment:"
-    echo "  PROMETHEUS_PUSHGATEWAY_URL  Pushgateway URL (required)"
+    echo "  AGENT_PUSHGATEWAY_URL       Pushgateway URL (required)"
     echo "  PROMETHEUS_JOB_NAME         Job name (default: agent)"
     echo "  PROMETHEUS_INSTANCE         Instance label (default: hostname)"
 }
 
 check_config() {
     if [[ -z "$PUSHGATEWAY_URL" ]]; then
-        echo "Error: PROMETHEUS_PUSHGATEWAY_URL environment variable not set" >&2
+        echo "Error: AGENT_PUSHGATEWAY_URL environment variable not set" >&2
         exit 1
     fi
 }

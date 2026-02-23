@@ -16,8 +16,8 @@ import urllib.error
 
 # ─── Configuration ──────────────────────────────────────────────────────────
 
-PLANKA_URL = os.environ.get("PLANKA_API_URL", "").rstrip("/")
-PLANKA_TOKEN = os.environ.get("PLANKA_API_TOKEN", "")
+PLANKA_URL = os.environ.get("AGENT_PLANKA_URL", "").rstrip("/")
+PLANKA_TOKEN = os.environ.get("AGENT_PLANKA_TOKEN", "")
 
 # Configure your board IDs here, or set PLANKA_BOARDS env var as JSON
 # Example: export PLANKA_BOARDS='{"main": "123456789", "dev": "987654321"}'
@@ -85,11 +85,11 @@ def api_call(method: str, endpoint: str, data: dict | None = None,
 def refresh_token():
     """Refresh the API token using stored credentials."""
     global PLANKA_TOKEN
-    username = os.environ.get("PLANKA_USERNAME", "")
-    password = os.environ.get("PLANKA_PASSWORD", "")
+    username = os.environ.get("AGENT_PLANKA_USER", "")
+    password = os.environ.get("AGENT_PLANKA_PASSWORD", "")
 
     if not username or not password:
-        raise PlankaError("Token expired. Set PLANKA_USERNAME and PLANKA_PASSWORD for auto-refresh.")
+        raise PlankaError("Token expired. Set AGENT_PLANKA_USER and AGENT_PLANKA_PASSWORD for auto-refresh.")
 
     body = json.dumps({"emailOrUsername": username, "password": password}).encode()
     req = urllib.request.Request(
@@ -116,8 +116,8 @@ def refresh_token():
             lines = f.readlines()
         with open(env_path, "w") as f:
             for line in lines:
-                if line.startswith("PLANKA_API_TOKEN="):
-                    f.write(f"PLANKA_API_TOKEN={new_token}\n")
+                if line.startswith("AGENT_PLANKA_TOKEN="):
+                    f.write(f"AGENT_PLANKA_TOKEN={new_token}\n")
                 else:
                     f.write(line)
 
@@ -170,7 +170,7 @@ def cmd_create(board_id: str, args):
         sys.exit(1)
 
     pos = next_position(board_data, list_id)
-    payload = {"name": args.title, "position": pos}
+    payload = {"name": args.title, "position": pos, "type": "story"}
     if args.description:
         payload["description"] = args.description
 
@@ -486,11 +486,15 @@ def main():
 
     # Validate config
     if not PLANKA_URL:
-        print("Error: PLANKA_API_URL environment variable not set", file=sys.stderr)
+        print("Error: AGENT_PLANKA_URL environment variable not set", file=sys.stderr)
         sys.exit(1)
     if not PLANKA_TOKEN:
-        print("Error: PLANKA_API_TOKEN environment variable not set", file=sys.stderr)
-        sys.exit(1)
+        # Try auto-login
+        try:
+            refresh_token()
+        except PlankaError:
+            print("Error: AGENT_PLANKA_TOKEN not set and auto-login failed (set AGENT_PLANKA_USER and AGENT_PLANKA_PASSWORD)", file=sys.stderr)
+            sys.exit(1)
 
     board_id = BOARD_IDS[args.board]
 

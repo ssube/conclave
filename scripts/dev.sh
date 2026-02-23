@@ -106,16 +106,20 @@ do_run() {
         sleep 2
     done
 
-    # Run browser end-to-end tests if playwright is available
-    if [ -f "$REPO_DIR/scripts/test-browser-final.mjs" ] && command -v node &>/dev/null; then
+    # Run end-to-end tests if playwright is available
+    if [ -f "$REPO_DIR/scripts/test-e2e.mjs" ] && command -v node &>/dev/null; then
         # Ensure Playwright Chromium is installed locally
         npx playwright install chromium 2>/dev/null || true
         echo ""
-        echo "=== Running browser tests ==="
-        if node "$REPO_DIR/scripts/test-browser-final.mjs"; then
-            echo "=== All browser tests passed ==="
+        echo "=== Running E2E tests ==="
+        local test_flags=""
+        if [[ "$IMAGE" == *"minimal"* ]]; then
+            test_flags="--minimal"
+        fi
+        if node "$REPO_DIR/scripts/test-e2e.mjs" $test_flags; then
+            echo "=== All E2E tests passed ==="
         else
-            echo "WARNING: Some browser tests failed (see output above)."
+            echo "WARNING: Some E2E tests failed (see output above)."
         fi
     fi
 
@@ -130,15 +134,19 @@ do_run() {
 }
 
 do_test() {
-    if [ -f "$REPO_DIR/scripts/test-browser-final.mjs" ] && command -v node &>/dev/null; then
+    if [ -f "$REPO_DIR/scripts/test-e2e.mjs" ] && command -v node &>/dev/null; then
         # Ensure Playwright Chromium is installed locally
         if ! npx playwright install chromium 2>/dev/null; then
             echo "WARNING: Could not install Playwright Chromium." >&2
         fi
-        echo "=== Running browser tests ==="
-        node "$REPO_DIR/scripts/test-browser-final.mjs"
+        echo "=== Running E2E tests ==="
+        local test_flags=""
+        if [[ "$IMAGE" == *"minimal"* ]]; then
+            test_flags="--minimal"
+        fi
+        node "$REPO_DIR/scripts/test-e2e.mjs" $test_flags "$@"
     else
-        echo "ERROR: playwright test script not found or node not available." >&2
+        echo "ERROR: E2E test script not found or node not available." >&2
         exit 1
     fi
 }
