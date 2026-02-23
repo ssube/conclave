@@ -57,10 +57,10 @@ Shared skills available to all three coding agents (Pi, Claude Code, Codex). Loc
 | ComfyUI Queue | Track, download, cancel, and monitor ComfyUI jobs |
 | Conclave Build | Build, test, and iterate on the Conclave container |
 | Conclave Launch | Launch a Conclave workspace on Runpod |
+| Discord | Send messages, read channels, upload files, create polls, and add reactions on Discord |
 | Healthcheck | Check the health of all Conclave services |
 | Image Optimize | Resize, compress, and format images for platform-specific requirements |
-| Matrix Read | Read messages, reactions, and replies from Matrix rooms |
-| Matrix Send | Send messages, images, and videos to Matrix rooms |
+| Matrix | Send messages, read channels, upload files, manage reactions, and list rooms |
 | Obsidian Import | Import an Obsidian vault into ChromaDB with heading-based chunking |
 | Ollama | Local LLM generation for captioning, prompt generation, and creative writing |
 | Planka | Manage tasks and projects in the Planka kanban board |
