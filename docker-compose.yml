@@ -1,0 +1,32 @@
+services:
+  conclave:
+    image: ssube/conclave:latest
+    ports:
+      - "8888:8888"   # nginx (dashboard, all services)
+      - "2222:22"      # SSH
+      - "7681:7681"    # ttyd (web terminal)
+      - "1337:1337"    # Planka
+      - "8081:8081"    # N.eko TCPMUX
+      - "8008:8008"    # Matrix / Synapse
+      - "8000:8000"    # ChromaDB
+      - "11434:11434"  # Ollama
+    volumes:
+      - workspace:/workspace
+    environment:
+      - EXTERNAL_HOSTNAME=localhost
+      - TZ=UTC
+      # Credentials (auto-generated on first boot if not set):
+      # - CONCLAVE_ADMIN_PASSWORD=
+      # - CONCLAVE_AGENT_PASSWORD=
+      # - SSH_AUTHORIZED_KEYS=
+      # External URLs (for agents to reach services from outside the container):
+      # - EXTERNAL_MATRIX_URL=
+      # - EXTERNAL_PLANKA_URL=
+      # - EXTERNAL_OLLAMA_URL=
+      # N.eko WebRTC (set for remote/NAT deployments):
+      # - NEKO_NAT1TO1=        # node/host IP for WebRTC ICE
+      # - NEKO_TCPMUX_PORT=    # must match the published 8081 port
+    restart: unless-stopped
+
+volumes:
+  workspace:
