@@ -244,12 +244,24 @@ Validate hardening with:
 sudo bash scripts/test-security.sh
 ```
 
+## Container Images
+
+Pre-built images are available on Docker Hub:
+
+| Image | Description |
+|---|---|
+| [`ssube/conclave:latest`](https://hub.docker.com/r/ssube/conclave) | Full image — all services including N.eko, Ollama, and ComfyUI support |
+| [`ssube/conclave-minimal:latest`](https://hub.docker.com/r/ssube/conclave-minimal) | Minimal image — no N.eko, Ollama, Chromium, or GPU dependencies |
+
+The minimal image (`Dockerfile.minimal`) disables N.eko, Ollama, Chromium, Pushgateway, and cron at build time, producing a smaller image suitable for CPU-only environments or CI testing.
+
 ## Development
 
 ### Building
 
 ```bash
-docker build -t conclave:latest .
+docker build -t conclave:latest .                          # full image
+docker build -f Dockerfile.minimal -t conclave-minimal .   # minimal image
 ```
 
 The Dockerfile installs Ansible temporarily, runs the playbook (`ansible/playbook.yml`), then removes Ansible from the final image.
