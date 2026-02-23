@@ -54,29 +54,29 @@ Shared skills available to all three coding agents (Pi, Claude Code, Codex). Loc
 
 | Skill | Description |
 |---|---|
-| Browser Connect | Connect to Chromium via CDP for automation, screenshots, and cookie management |
-| ChromaDB | Semantic search and vector storage using ChromaDB |
-| ComfyUI Generate | Generate images via ComfyUI API with Flux/LoRA support, plus image-to-video |
-| ComfyUI Info | Discover available ComfyUI resources — models, LoRAs, workflows, system status |
-| ComfyUI Queue | Track, download, cancel, and monitor ComfyUI jobs |
-| Conclave Build | Build, test, and iterate on the Conclave container |
-| Conclave Launch | Launch a Conclave workspace on Runpod |
-| Discord | Send messages, read channels, upload files, create polls, and add reactions on Discord |
-| Healthcheck | Check the health of all Conclave services |
-| Image Optimize | Resize, compress, and format images for platform-specific requirements |
-| Matrix | Send messages, read channels, upload files, manage reactions, and list rooms |
-| Obsidian Import | Import an Obsidian vault into ChromaDB with heading-based chunking |
-| Ollama | Local LLM generation for captioning, prompt generation, and creative writing |
-| Planka | Manage tasks and projects in the Planka kanban board |
-| Project Planning | Interview-driven planning to produce specs and Planka cards |
-| Prometheus | Push metrics to Prometheus Pushgateway |
-| Self-Reflection | Review context, identify gaps, and refine approaches |
-| Skill Creator | Create and validate new skills with proper structure and conventions |
-| SQLite | Execute SQL queries against a SQLite database |
-| Systematic Debugging | 4-phase debugging process for finding root cause of issues |
-| Take Note | Capture notes and context into ChromaDB for long-term memory |
-| Web Browse | Browse the web — screenshots, text extraction, and JavaScript execution |
-| Web Search | Search the web for documentation, troubleshooting, and current information |
+| [Browser Connect](pi/skills/browser-connect/SKILL.md) | Connect to Chromium via CDP for automation, screenshots, and cookie management |
+| [ChromaDB](pi/skills/chromadb/SKILL.md) | Semantic search and vector storage using ChromaDB |
+| [ComfyUI Generate](pi/skills/comfyui-generate/SKILL.md) | Generate images via ComfyUI API with Flux/LoRA support, plus image-to-video |
+| [ComfyUI Info](pi/skills/comfyui-info/SKILL.md) | Discover available ComfyUI resources — models, LoRAs, workflows, system status |
+| [ComfyUI Queue](pi/skills/comfyui-queue/SKILL.md) | Track, download, cancel, and monitor ComfyUI jobs |
+| [Conclave Build](pi/skills/conclave-build/SKILL.md) | Build, test, and iterate on the Conclave container |
+| [Conclave Launch](pi/skills/conclave-launch/SKILL.md) | Launch a Conclave workspace on Runpod |
+| [Discord](pi/skills/discord/SKILL.md) | Send messages, read channels, upload files, create polls, and add reactions on Discord |
+| [Healthcheck](pi/skills/healthcheck/SKILL.md) | Check the health of all Conclave services |
+| [Image Optimize](pi/skills/image-optimize/SKILL.md) | Resize, compress, and format images for platform-specific requirements |
+| [Matrix](pi/skills/matrix/SKILL.md) | Send messages, read channels, upload files, manage reactions, and list rooms |
+| [Obsidian Import](pi/skills/obsidian-import/SKILL.md) | Import an Obsidian vault into ChromaDB with heading-based chunking |
+| [Ollama](pi/skills/ollama/SKILL.md) | Local LLM generation for captioning, prompt generation, and creative writing |
+| [Planka](pi/skills/planka/SKILL.md) | Manage tasks and projects in the Planka kanban board |
+| [Project Planning](pi/skills/project-planning/SKILL.md) | Interview-driven planning to produce specs and Planka cards |
+| [Prometheus](pi/skills/prometheus/SKILL.md) | Push metrics to Prometheus Pushgateway |
+| [Self-Reflection](pi/skills/self-reflection/SKILL.md) | Review context, identify gaps, and refine approaches |
+| [Skill Creator](pi/skills/skill-creator/SKILL.md) | Create and validate new skills with proper structure and conventions |
+| [SQLite](pi/skills/sqlite/SKILL.md) | Execute SQL queries against a SQLite database |
+| [Systematic Debugging](pi/skills/systematic-debugging/SKILL.md) | 4-phase debugging process for finding root cause of issues |
+| [Take Note](pi/skills/take-note/SKILL.md) | Capture notes and context into ChromaDB for long-term memory |
+| [Web Browse](pi/skills/web-browse/SKILL.md) | Browse the web — screenshots, text extraction, and JavaScript execution |
+| [Web Search](pi/skills/web-search/SKILL.md) | Search the web for documentation, troubleshooting, and current information |
 
 Skills follow the [Agent Skills](https://agentskills.io/) standard (`SKILL.md` format). Many were inspired by or adapted from:
 
