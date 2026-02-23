@@ -19,6 +19,11 @@ services:
       # - CONCLAVE_ADMIN_PASSWORD=
       # - CONCLAVE_AGENT_PASSWORD=
       # - SSH_AUTHORIZED_KEYS=
+      # API keys for coding agents:
+      # - ANTHROPIC_API_KEY=
+      # - OPENAI_API_KEY=
+      # - MINIMAX_API_KEY=
+      # - OPENROUTER_API_KEY=
       # External URLs (for agents to reach services from outside the container):
       # - EXTERNAL_MATRIX_URL=
       # - EXTERNAL_PLANKA_URL=

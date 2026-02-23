@@ -22,6 +22,15 @@
             "apiKey": "ANTHROPIC_API_KEY",
             "models": [
                 {
+                    "id": "claude-opus-4-6",
+                    "name": "Claude Opus 4.6",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 200000,
+                    "maxTokens": 32000,
+                    "cost": { "input": 15, "output": 75, "cacheRead": 1.5, "cacheWrite": 18.75 }
+                },
+                {
                     "id": "claude-sonnet-4-6",
                     "name": "Claude Sonnet 4.6",
                     "reasoning": true,
@@ -41,11 +50,36 @@
                 }
             ]
         },
+        "minimax": {
+            "baseUrl": "https://api.minimax.io/v1",
+            "api": "openai-completions",
+            "apiKey": "MINIMAX_API_KEY",
+            "models": [
+                {
+                    "id": "MiniMax-M2.5",
+                    "name": "MiniMax M2.5",
+                    "reasoning": true,
+                    "input": ["text"],
+                    "contextWindow": 1000000,
+                    "maxTokens": 131072,
+                    "cost": { "input": 0.3, "output": 1.2, "cacheRead": 0, "cacheWrite": 0 }
+                }
+            ]
+        },
         "openai": {
             "baseUrl": "https://api.openai.com/v1",
             "api": "openai-completions",
             "apiKey": "OPENAI_API_KEY",
             "models": [
+                {
+                    "id": "o3-pro",
+                    "name": "o3-pro",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 200000,
+                    "maxTokens": 100000,
+                    "cost": { "input": 20, "output": 80, "cacheRead": 0, "cacheWrite": 0 }
+                },
                 {
                     "id": "o3",
                     "name": "o3",
@@ -65,6 +99,15 @@
                     "cost": { "input": 1.1, "output": 4.4, "cacheRead": 0.275, "cacheWrite": 0 }
                 },
                 {
+                    "id": "gpt-5.2",
+                    "name": "GPT-5.2",
+                    "reasoning": false,
+                    "input": ["text", "image"],
+                    "contextWindow": 400000,
+                    "maxTokens": 128000,
+                    "cost": { "input": 1.75, "output": 14, "cacheRead": 0, "cacheWrite": 0 }
+                },
+                {
                     "id": "gpt-4.1",
                     "name": "GPT-4.1",
                     "reasoning": false,
@@ -72,6 +115,31 @@
                     "contextWindow": 1047576,
                     "maxTokens": 32768,
                     "cost": { "input": 2, "output": 8, "cacheRead": 0.5, "cacheWrite": 0 }
+                }
+            ]
+        },
+        "openrouter": {
+            "baseUrl": "https://openrouter.ai/api/v1",
+            "api": "openai-completions",
+            "apiKey": "OPENROUTER_API_KEY",
+            "models": [
+                {
+                    "id": "google/gemini-2.5-pro",
+                    "name": "Gemini 2.5 Pro (OpenRouter)",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 1048576,
+                    "maxTokens": 65536,
+                    "cost": { "input": 1.25, "output": 10, "cacheRead": 0, "cacheWrite": 0 }
+                },
+                {
+                    "id": "deepseek/deepseek-r1",
+                    "name": "DeepSeek R1 (OpenRouter)",
+                    "reasoning": true,
+                    "input": ["text"],
+                    "contextWindow": 131072,
+                    "maxTokens": 65536,
+                    "cost": { "input": 0.55, "output": 2.19, "cacheRead": 0.14, "cacheWrite": 0 }
                 }
             ]
         }

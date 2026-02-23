@@ -16,11 +16,15 @@ A fourth window (`dev`) provides a plain bash shell. The tmux session is pre-cre
 
 ### Pi Model Configuration
 
-Pi is configured with three providers in `configs/coding/pi-models.json`:
+Pi is configured with six providers in `configs/coding/pi-models.json`:
 
-- **ollama** — Local inference via the container's Ollama instance (`qwen3-coder:30b-a3b-q8_0`)
-- **anthropic** — Claude Sonnet 4.6 and Claude Haiku 4.5 (requires `ANTHROPIC_API_KEY`)
-- **openai** — o3, o4-mini, and GPT-4.1 (requires `OPENAI_API_KEY`)
+| Provider | Models | API Key |
+|---|---|---|
+| **ollama** | Qwen3 Coder 30B-A3B Q8 (local) | — |
+| **anthropic** | Claude Opus 4.6, Sonnet 4.6, Haiku 4.5 | `ANTHROPIC_API_KEY` |
+| **minimax** | MiniMax M2.5 | `MINIMAX_API_KEY` |
+| **openai** | o3-pro, o3, o4-mini, GPT-5.2, GPT-4.1 | `OPENAI_API_KEY` |
+| **openrouter** | Gemini 2.5 Pro, DeepSeek R1 | `OPENROUTER_API_KEY` |
 
 The configuration uses the provider format with per-provider `baseUrl`, `api`, and `apiKey` fields. API keys named in UPPER_CASE are resolved from environment variables at runtime.
 
@@ -177,8 +181,10 @@ Other options: `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatab
 | `TTYD_USER` | No | `admin` | Web terminal username |
 | `PLANKA_ADMIN_EMAIL` | No | `admin@local` | Planka admin email |
 | `DEFAULT_OLLAMA_MODEL` | No | `qwen3-coder:30b-a3b-q8_0` | Model to pre-pull on first boot |
-| `ANTHROPIC_API_KEY` | No | — | API key for Claude Code and pi |
-| `OPENAI_API_KEY` | No | — | API key for pi (OpenAI provider) |
+| `ANTHROPIC_API_KEY` | No | — | API key for Claude Code and Pi (Anthropic provider) |
+| `OPENAI_API_KEY` | No | — | API key for Pi (OpenAI provider) |
+| `MINIMAX_API_KEY` | No | — | API key for Pi (MiniMax provider) |
+| `OPENROUTER_API_KEY` | No | — | API key for Pi (OpenRouter provider) |
 | `SSH_AUTHORIZED_KEYS` | No | — | SSH public keys (newline-separated) |
 | `CONCLAVE_DEV_PASSWORD` | No | `$CONCLAVE_ADMIN_PASSWORD` | Password for `dev` user (updated on each boot) |
 | `CONCLAVE_AGENT_USER` | No | `pi` | Username for the agent user in Matrix and Planka |
