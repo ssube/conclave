@@ -88,16 +88,25 @@ check_service() {
     check_http "$name" "$url"
 }
 
+# ── Service enablement flags (match startup.sh defaults) ───────────────────
+POSTGRES_ENABLED="${CONCLAVE_POSTGRES_ENABLED:-true}"
+SYNAPSE_ENABLED="${CONCLAVE_SYNAPSE_ENABLED:-true}"
+OLLAMA_ENABLED="${CONCLAVE_OLLAMA_ENABLED:-true}"
+PLANKA_ENABLED="${CONCLAVE_PLANKA_ENABLED:-true}"
+PUSHGATEWAY_ENABLED="${CONCLAVE_PUSHGATEWAY_ENABLED:-true}"
+
 # ── 1. Core Infrastructure ──────────────────────────────────────────────────
 
 # PostgreSQL — no HTTP, use pg_isready
-pg_sup=$(check_supervisor postgres)
-if [[ "$pg_sup" != "RUNNING" ]]; then
-    record postgres critical "process $pg_sup"
-elif pg_isready -q 2>/dev/null; then
-    record postgres ok "running, accepting connections"
-else
-    record postgres warn "process running but not accepting connections"
+if [[ "$POSTGRES_ENABLED" == "true" ]]; then
+    pg_sup=$(check_supervisor postgres)
+    if [[ "$pg_sup" != "RUNNING" ]]; then
+        record postgres critical "process $pg_sup"
+    elif pg_isready -q 2>/dev/null; then
+        record postgres ok "running, accepting connections"
+    else
+        record postgres warn "process running but not accepting connections"
+    fi
 fi
 
 nginx_sup=$(check_supervisor nginx)
@@ -109,7 +118,9 @@ else
     check_http nginx "http://127.0.0.1:8888/"
 fi
 
-check_service synapse  "http://127.0.0.1:8008/_matrix/client/versions"
+if [[ "$SYNAPSE_ENABLED" == "true" ]]; then
+    check_service synapse  "http://127.0.0.1:8008/_matrix/client/versions"
+fi
 
 # ── 2. Application Services ─────────────────────────────────────────────────
 
@@ -123,8 +134,12 @@ else
     check_http chromadb "http://127.0.0.1:8000/api/v2/heartbeat"
 fi
 
-check_service ollama   "http://127.0.0.1:11434/api/tags"
-check_service planka   "http://127.0.0.1:1337/"
+if [[ "$OLLAMA_ENABLED" == "true" ]]; then
+    check_service ollama   "http://127.0.0.1:11434/api/tags"
+fi
+if [[ "$PLANKA_ENABLED" == "true" ]]; then
+    check_service planka   "http://127.0.0.1:1337/"
+fi
 
 ttyd_sup=$(check_supervisor ttyd)
 if [[ "$ttyd_sup" != "RUNNING" ]]; then
@@ -135,7 +150,9 @@ else
     check_http ttyd "http://127.0.0.1:7681/"
 fi
 check_service neko     "http://127.0.0.1:8080/"
-check_service pushgateway "http://127.0.0.1:9091/-/healthy"
+if [[ "$PUSHGATEWAY_ENABLED" == "true" ]]; then
+    check_service pushgateway "http://127.0.0.1:9091/-/healthy"
+fi
 
 # ── 3. Browser (CDP) ────────────────────────────────────────────────────────
 

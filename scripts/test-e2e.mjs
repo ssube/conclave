@@ -324,15 +324,13 @@ async function testMatrix(browser) {
     }
   }, { fullOnly: true });
 
-  // Skill write (matrix-send/send.sh) — resolve room ID first to avoid alias URL-encoding issue
+  // Skill write (unified matrix skill — send subcommand)
   const skillMsg = `e2e-skill-${randomUUID().slice(0, 8)}`;
   await runTest('matrix', 'skill-send', async () => {
     const t0 = Date.now();
-    // Resolve room alias to room ID inside container, then pass the room ID directly
-    const out = containerExec(
-      `set -a && source /workspace/config/agent-env.sh && set +a && ROOM_ID=$(curl -sf "http://127.0.0.1:8008/_matrix/client/v3/directory/room/%23home%3A$MATRIX_SERVER_NAME" -H "Authorization: Bearer $MATRIX_ACCESS_TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['room_id'])") && cd /opt/conclave/pi/skills/matrix-send && bash send.sh "$ROOM_ID" "${skillMsg}"`,
-      { timeout: 30000 },
-    );
+    const out = skillExec('/opt/conclave/pi/skills/matrix', [
+      'python3', 'matrix.py', 'send', skillMsg, '--room', 'home',
+    ], { timeout: 30000 });
     if (out.includes('Sent') || out.includes('event') || out.includes('Event ID')) {
       record('matrix', 'skill-send', 'pass', out.slice(0, 80) || 'message sent', Date.now() - t0);
     } else {
@@ -340,11 +338,11 @@ async function testMatrix(browser) {
     }
   }, { fullOnly: true });
 
-  // Skill read (matrix-read/matrix_read.py)
+  // Skill read (unified matrix skill — read subcommand)
   await runTest('matrix', 'skill-read', async () => {
     const t0 = Date.now();
-    const out = skillExec('/opt/conclave/pi/skills/matrix-read', [
-      'python3', 'matrix_read.py', '--room', 'home', '--json', '--since', '5',
+    const out = skillExec('/opt/conclave/pi/skills/matrix', [
+      'python3', 'matrix.py', 'read', '--room', 'home', '--json', '--since', '5',
     ], { timeout: 30000 });
     if (out.includes(skillMsg)) {
       record('matrix', 'skill-read', 'pass', 'skill message found', Date.now() - t0);
