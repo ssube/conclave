@@ -47,7 +47,7 @@ All services run under **supervisord** (`configs/supervisord.conf`). Key program
 | 14-17 | dbus, xvfb, pulseaudio, openbox, chromium | 9222 (internal) |
 | 30 | synapse, chromadb, ollama, ttyd, pushgateway | 8008, 8000, 11434, 7681, 9091 |
 | 40 | planka | 1337 |
-| 50 | neko | 8080 |
+| 50 | neko | 8080, 8081 (TCPMUX) |
 | 99 | tmux-session, ollama-pull, create-users | oneshot |
 
 ## First Boot Flow
