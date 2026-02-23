@@ -253,7 +253,7 @@ Pre-built images are available on Docker Hub:
 | [`ssube/conclave:latest`](https://hub.docker.com/r/ssube/conclave) | Full image — all services including N.eko, Ollama, and ComfyUI support |
 | [`ssube/conclave-minimal:latest`](https://hub.docker.com/r/ssube/conclave-minimal) | Minimal image — no N.eko, Ollama, Chromium, or GPU dependencies |
 
-The minimal image (`Dockerfile.minimal`) disables N.eko, Ollama, Chromium, Pushgateway, and cron at build time, producing a smaller image suitable for CPU-only environments or CI testing.
+The minimal image (`Dockerfile.minimal`) disables Matrix (Synapse + Element Web), PostgreSQL, Planka, Ollama, and Pushgateway at build time. It keeps N.eko, Chromium, ChromaDB, ttyd, and cron. Based on `ubuntu:22.04` instead of NVIDIA CUDA.
 
 ## Development
 
