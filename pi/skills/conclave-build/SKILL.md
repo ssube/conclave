@@ -43,9 +43,10 @@ All services run under **supervisord** (`configs/supervisord.conf`). Key program
 
 | Priority | Service | Port |
 |----------|---------|------|
-| 10 | postgres, nginx, sshd | 5432, 8888, 22 |
+| 10 | postgres, nginx, sshd, cron | 5432, 8888, 22, — |
 | 14-17 | dbus, xvfb, pulseaudio, openbox, chromium | 9222 (internal) |
-| 30 | synapse, chromadb, ollama, ttyd, planka | 8008, 8000, 11434, 7681, 1337 |
+| 30 | synapse, chromadb, ollama, ttyd, pushgateway | 8008, 8000, 11434, 7681, 9091 |
+| 40 | planka | 1337 |
 | 50 | neko | 8080 |
 | 99 | tmux-session, ollama-pull, create-users | oneshot |
 
@@ -97,8 +98,8 @@ bash /opt/conclave/scripts/agent-healthcheck.sh
 bash /opt/conclave/scripts/agent-healthcheck.sh --json
 ```
 
-Checks 10 services: postgres, nginx, synapse, chromadb, ollama, planka, ttyd,
-neko, chromium-cdp, disk. Uses credentials from `generated-secrets.env`.
+Checks 11 services: postgres, nginx, synapse, chromadb, ollama, planka, ttyd,
+neko, pushgateway, chromium-cdp, disk. Uses credentials from `generated-secrets.env`.
 
 ## Key Directories
 
