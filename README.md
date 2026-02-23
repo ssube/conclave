@@ -6,20 +6,19 @@ A self-hosted AI workspace in a single container. Conclave runs Matrix chat, a k
 
 | Service | Port | Path | Description |
 |---|---|---|---|
-| nginx | 8888 | `/` | Unified reverse proxy and dashboard |
-| Matrix Synapse | 8008 | `/_matrix/` | Chat homeserver |
-| Element Web | — | `/element/` | Matrix web client (static files) |
-| PostgreSQL 16 | 5432 | — | Shared database (Synapse + Planka) |
-| Planka | 1337 | `/planka/` | Kanban project management |
-| ChromaDB | 8000 | `/chromadb/` | Vector database for RAG |
-| ChromaDB Admin | 3100 | `/chromadb-admin/` | Vector database browser |
-| Ollama | 11434 | `/ollama/` | LLM inference (OpenAI-compatible API) |
-| N.eko | 8080 | `/neko/` | WebRTC remote browser session (TCPMUX on `NEKO_TCPMUX_PORT`, default 8081) |
-| Pushgateway | 9091 | `/pushgateway/` | Prometheus Pushgateway for metrics |
+| [nginx](https://github.com/nginx/nginx) | 8888 | `/` | Unified reverse proxy and dashboard |
+| [Matrix Synapse](https://github.com/element-hq/synapse) | 8008 | `/_matrix/` | Chat homeserver |
+| [Element Web](https://github.com/element-hq/element-web) | — | `/element/` | Matrix web client (static files) |
+| [PostgreSQL 16](https://github.com/postgres/postgres) | 5432 | — | Shared database (Synapse + Planka) |
+| [Planka](https://github.com/plankanban/planka) | 1337 | `/planka/` | Kanban project management |
+| [ChromaDB](https://github.com/chroma-core/chroma) | 8000 | `/chromadb/` | Vector database for RAG |
+| [Ollama](https://github.com/ollama/ollama) | 11434 | `/ollama/` | LLM inference (OpenAI-compatible API) |
+| [N.eko](https://github.com/m1k1o/neko) | 8080 | `/neko/` | WebRTC remote browser session (TCPMUX on `NEKO_TCPMUX_PORT`, default 8081) |
+| [Pushgateway](https://github.com/prometheus/pushgateway) | 9091 | `/pushgateway/` | Prometheus Pushgateway for metrics |
 | Chromium CDP | 9222 | — | Browser automation (internal) |
-| ttyd | 7681 | `/terminal/` | Web terminal (tmux) |
+| [ttyd](https://github.com/tsl0922/ttyd) | 7681 | `/terminal/` | Web terminal (tmux) |
 | cron | — | — | System cron daemon (reads `/workspace/config/cron/crontab`) |
-| SSH | 22 | — | Shell access as `dev` user |
+| [OpenSSH](https://github.com/openssh/openssh-portable) | 22 | — | Shell access as `dev` user |
 
 ## Quick Start
 
