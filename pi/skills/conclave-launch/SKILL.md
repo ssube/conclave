@@ -57,3 +57,4 @@ Pass via `--env` flags:
 1. The script prints the dashboard URL and SSH connection string
 2. Access the dashboard at `https://{pod-id}-8888.proxy.runpod.net/`
 3. Follow the quick-start guide on the dashboard
+4. Always ask the user if they want you to launch the SSH tunnel for the Neko browser, this will help them out a lot if they want to use the interactive browser in the Conclave workspace
