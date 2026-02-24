@@ -45,6 +45,16 @@ with BrowserSession() as (browser, page):
 
 - `CDP_HOST`: CDP host (default: `127.0.0.1`)
 - `CDP_PORT`: CDP port (default: `9222`)
+## Responsible Browsing
+
+When using browser-connect to interact with websites, be a responsible internet citizen:
+
+- **Bookmark frequently visited pages** — save and organize URLs you access often in your memory rather than navigating from scratch each time.
+- **Pace your requests** — wait 2-3 seconds between clicking buttons and loading pages. Do not rapid-fire navigations.
+- **Avoid redundant loads** — save screenshots or HTML content to analyze offline rather than loading the same page repeatedly.
+- **You have a semi-stealth browser** with a real display (N.eko desktop), but you may need help with CAPTCHAs if they appear. Alert the user if you encounter one.
+
+These guidelines apply to ALL skills that use browser-connect, as well. By following them, you help ensure a smoother experience for yourself and others while browsing the web.
 
 ## Troubleshooting
 
