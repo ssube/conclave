@@ -126,10 +126,30 @@ case "$MODE" in
 
     runpod)
         POD_ID="${POSITIONAL[0]:?runpod mode requires a pod ID}"
-        SSH_HOST="${POD_ID}-22.proxy.runpod.net"
-        SSH_PORT=22
+        : "${RUNPOD_API_KEY:?RUNPOD_API_KEY must be set for runpod mode}"
         SSH_USER="root"
-        echo "Mode: runpod (pod: $POD_ID)"
+
+        # Query the Runpod API for the pod's public IP and SSH port.
+        # The HTTP proxy (pod-id-PORT.proxy.runpod.net) does not support raw
+        # TCP, so SSH port forwarding requires the pod's direct public IP.
+        PORTS_JSON=$(curl -sf "https://api.runpod.io/graphql?api_key=${RUNPOD_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"query { pod(input: { podId: \\\"${POD_ID}\\\" }) { runtime { ports { ip isIpPublic privatePort publicPort type } } } }\"}" \
+            | jq '.data.pod.runtime.ports')
+
+        SSH_HOST=$(echo "$PORTS_JSON" \
+            | jq -r '[.[] | select(.isIpPublic == true and .privatePort == 22)] | first | .ip // empty')
+        SSH_PORT=$(echo "$PORTS_JSON" \
+            | jq -r '[.[] | select(.isIpPublic == true and .privatePort == 22)] | first | .publicPort // empty')
+
+        if [[ -z "$SSH_HOST" || -z "$SSH_PORT" ]]; then
+            echo "ERROR: Could not find public SSH port for pod $POD_ID"
+            echo "  Check that the pod is running and has port 22 exposed."
+            echo "  Raw ports: $(echo "$PORTS_JSON" | jq -c .)"
+            exit 1
+        fi
+
+        echo "Mode: runpod (pod: $POD_ID, public SSH: $SSH_HOST:$SSH_PORT)"
         ;;
 
     *)
