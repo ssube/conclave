@@ -187,7 +187,7 @@ Other options: `--image`, `--volume-size`, `--name`, `--env KEY=VALUE` (repeatab
 | `OPENROUTER_API_KEY` | No | — | API key for Pi (OpenRouter provider) |
 | `SSH_AUTHORIZED_KEYS` | No | — | SSH public keys (newline-separated) |
 | `CONCLAVE_DEV_PASSWORD` | No | `$CONCLAVE_ADMIN_PASSWORD` | Password for `dev` user (updated on each boot) |
-| `CONCLAVE_AGENT_USER` | No | `pi` | Username for the agent user in Matrix and Planka |
+| `CONCLAVE_AGENT_USER` | No | `agent` | Username for the agent user in Matrix and Planka |
 | `TZ` | No | `UTC` | Container timezone (e.g. `America/New_York`) |
 | `CONCLAVE_PUSHGATEWAY_ENABLED` | No | `true` | Enable Prometheus Pushgateway |
 | `CONCLAVE_CRON_ENABLED` | No | `true` | Enable cron daemon (reads `/workspace/config/cron/crontab`) |

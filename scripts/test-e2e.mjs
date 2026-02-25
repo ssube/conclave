@@ -636,8 +636,8 @@ async function testPlanka(browser) {
     }
   }, { fullOnly: true });
 
-  // Skill write — source admin credentials from container secrets since default agent user
-  // "pi" is too short for Planka's username validation (minimum 3 characters).
+  // Skill write — source admin credentials from container secrets since the agent user
+  // may be too short for Planka's username validation (minimum 3 characters).
   // Also set PLANKA_BOARDS with the discovered board ID since agent-env.sh doesn't include it.
   const skillCardTitle = `E2E Skill Card ${randomUUID().slice(0, 8)}`;
   const boardsJson = boardId ? `{"main":"${boardId}"}` : '{}';

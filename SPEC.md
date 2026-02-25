@@ -711,7 +711,7 @@ startup.sh
 | `SSH_AUTHORIZED_KEYS` | No | — | Public keys (newline-separated) |
 | `CONCLAVE_SETUP_ONLY` | No | — | Set to `1` to run setup and exit without starting supervisord (for testing) |
 | `CONCLAVE_DEV_PASSWORD` | No | `changeme` | Password for the `dev` user (set at build time via Ansible, updated on each boot by startup.sh if provided) |
-| `CONCLAVE_AGENT_USER` | No | `pi` | Username for the agent user in Matrix and Planka |
+| `CONCLAVE_AGENT_USER` | No | `agent` | Username for the agent user in Matrix and Planka |
 
 Secrets not provided via env vars are auto-generated on first boot and written to `/workspace/config/generated-secrets.env` for reference. This includes `ADMIN_MATRIX_PASSWORD`, `AGENT_MATRIX_PASSWORD`, and `AGENT_PLANKA_PASSWORD` for the automatically created admin and agent users.
 

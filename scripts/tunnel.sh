@@ -187,6 +187,13 @@ if ! $MINIMAL; then
     )
 fi
 
+# ── Fetch admin password from remote ──────────────────────────────────────────
+
+ADMIN_PASS=$(ssh -p "$SSH_PORT" -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
+    "${SSH_USER}@${SSH_HOST}" \
+    "grep CONCLAVE_ADMIN_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2" \
+    2>/dev/null || true)
+
 # ── Print summary and connect ─────────────────────────────────────────────────
 
 echo ""
@@ -205,6 +212,10 @@ if ! $MINIMAL; then
     echo "  http://localhost:1337      Planka"
 fi
 echo ""
+if [[ -n "$ADMIN_PASS" ]]; then
+    echo "  Admin password: $ADMIN_PASS"
+    echo ""
+fi
 echo "  Press Ctrl+C to disconnect."
 echo ""
 

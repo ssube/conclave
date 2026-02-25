@@ -11,7 +11,7 @@ if [ -f "$SECRETS_FILE" ]; then
     set +a
 fi
 
-CONCLAVE_AGENT_USER="${CONCLAVE_AGENT_USER:-pi}"
+CONCLAVE_AGENT_USER="${CONCLAVE_AGENT_USER:-agent}"
 MATRIX_SERVER_NAME="${MATRIX_SERVER_NAME:-conclave.local}"
 
 # ---------------------------------------------------------------
