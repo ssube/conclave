@@ -189,9 +189,12 @@ fi
 
 # ── Fetch admin password from remote ──────────────────────────────────────────
 
+# Fetch admin password via the tmux server environment. The dev SSH user cannot
+# read generated-secrets.env, but the tmux server (started by supervisord)
+# inherits CONCLAVE_ADMIN_PASSWORD from startup.sh.
 ADMIN_PASS=$(ssh -p "$SSH_PORT" -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
     "${SSH_USER}@${SSH_HOST}" \
-    "grep CONCLAVE_ADMIN_PASSWORD /workspace/config/generated-secrets.env 2>/dev/null | cut -d= -f2" \
+    'tmux run-shell "echo \$CONCLAVE_ADMIN_PASSWORD"' \
     2>/dev/null || true)
 
 # ── Print summary and connect ─────────────────────────────────────────────────
